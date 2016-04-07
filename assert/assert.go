@@ -124,6 +124,10 @@ func False(t testing.TB, value bool) bool {
 	return defaultGroup(t).AssertFalse(value)
 }
 
+func Failed(t testing.TB, msg string) bool {
+	return defaultGroup(t).AssertFailed(msg)
+}
+
 func ErrorContains(t testing.TB, got error, want string) bool {
 	return defaultGroup(t).AssertErrorContains(got, want)
 }
@@ -269,6 +273,11 @@ func (grp *G) AssertTrue(value bool) bool {
 
 func (grp *G) AssertFalse(value bool) bool {
 	return grp.AssertEqual(value, false)
+}
+
+func (grp *G) AssertFailed(msg string) bool {
+	grp.Errorf("Failed: %s", msg)
+	return false
 }
 
 func (grp *G) AssertErrorContains(got error, want string) bool {
