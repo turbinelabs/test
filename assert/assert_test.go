@@ -147,40 +147,40 @@ var (
 	struct2 = moreComplexStruct{A: "b", C: lessComplexSubstruct{D: "z"}}
 
 	nilnessTestCases = []nilTestCase{
-		nilTestCase{"nil", nil, nilish},
-		nilTestCase{"*string-nil", nilStringPtr, nilish},
-		nilTestCase{"*struct-nil", nilStructPtr, nilish},
-		nilTestCase{"*int", &int1a, notNilish},
-		nilTestCase{"*string-1a", &string1a, notNilish},
-		nilTestCase{"*struct-1a", &cs1a, notNilish},
-		nilTestCase{"[]string-nilish", nilSlice, nilish},
-		nilTestCase{"[]string-notnilish", slice1a, notNilish},
-		nilTestCase{"chan-nilish", nilChannel, nilish},
-		nilTestCase{"chan-notnilish", channel, notNilish},
-		nilTestCase{"func-nilish", nilFunction, nilish},
-		nilTestCase{"func-notnilish", function, notNilish},
+		{"nil", nil, nilish},
+		{"*string-nil", nilStringPtr, nilish},
+		{"*struct-nil", nilStructPtr, nilish},
+		{"*int", &int1a, notNilish},
+		{"*string-1a", &string1a, notNilish},
+		{"*struct-1a", &cs1a, notNilish},
+		{"[]string-nilish", nilSlice, nilish},
+		{"[]string-notnilish", slice1a, notNilish},
+		{"chan-nilish", nilChannel, nilish},
+		{"chan-notnilish", channel, notNilish},
+		{"func-nilish", nilFunction, nilish},
+		{"func-notnilish", function, notNilish},
 	}
 
 	equalityTestCasesJsonOk = []equalTestCase{
-		equalTestCase{"string-1a-1b", string1a, string1b, equalAndDeepEqual},
-		equalTestCase{"string-1a-2", string1a, string2, notEqual},
-		equalTestCase{"*string-nil-nil", nilStringPtr, nilStringPtr, equalAndDeepEqual},
-		equalTestCase{"*string-1a-1b", &string1a, &string1b, justDeepEqual},
-		equalTestCase{"*string-1a-2", &string1a, &string2, notEqual},
-		equalTestCase{"string & *-1a-1b", string1a, &string1b, justJsonEqual},
-		equalTestCase{"string & *-1a-1b", &string1a, string1b, justJsonEqual},
-		equalTestCase{"int-1a-1b", int1a, int1b, equalAndDeepEqual},
-		equalTestCase{"int-1a-2", int1a, int2, notEqual},
-		equalTestCase{"*int-1a-1b", &int1a, &int1b, justDeepEqual},
-		equalTestCase{"*int-1a-2", &int1a, &int2, notEqual},
-		equalTestCase{"struct-1a-1b", cs1a, cs1b, equalAndDeepEqual},
-		equalTestCase{"struct-2a-2b", cs2a, cs2b, justDeepEqual},
-		equalTestCase{"struct-3-4", cs3, cs4, justJsonEqual},
-		equalTestCase{"*struct-1a-1b", &cs1a, &cs1b, justDeepEqual},
-		equalTestCase{"*struct-2a-2b", &cs2a, &cs2b, justDeepEqual},
-		equalTestCase{"*struct-3-4", &cs3, &cs4, justJsonEqual},
-		equalTestCase{"*[]string-1a-1b", &slice1a, &slice1b, justDeepEqual},
-		equalTestCase{"*[]string-1a-2", &slice1a, &slice2, notEqual},
+		{"string-1a-1b", string1a, string1b, equalAndDeepEqual},
+		{"string-1a-2", string1a, string2, notEqual},
+		{"*string-nil-nil", nilStringPtr, nilStringPtr, equalAndDeepEqual},
+		{"*string-1a-1b", &string1a, &string1b, justDeepEqual},
+		{"*string-1a-2", &string1a, &string2, notEqual},
+		{"string & *-1a-1b", string1a, &string1b, justJsonEqual},
+		{"string & *-1a-1b", &string1a, string1b, justJsonEqual},
+		{"int-1a-1b", int1a, int1b, equalAndDeepEqual},
+		{"int-1a-2", int1a, int2, notEqual},
+		{"*int-1a-1b", &int1a, &int1b, justDeepEqual},
+		{"*int-1a-2", &int1a, &int2, notEqual},
+		{"struct-1a-1b", cs1a, cs1b, equalAndDeepEqual},
+		{"struct-2a-2b", cs2a, cs2b, justDeepEqual},
+		{"struct-3-4", cs3, cs4, justJsonEqual},
+		{"*struct-1a-1b", &cs1a, &cs1b, justDeepEqual},
+		{"*struct-2a-2b", &cs2a, &cs2b, justDeepEqual},
+		{"*struct-3-4", &cs3, &cs4, justJsonEqual},
+		{"*[]string-1a-1b", &slice1a, &slice1b, justDeepEqual},
+		{"*[]string-1a-2", &slice1a, &slice2, notEqual},
 	}
 
 	equalityTestCases = append(
@@ -191,8 +191,8 @@ var (
 
 	// these types cannot be compared with == (runtime panic)
 	deepEqualityTestCasesJsonOk = []equalTestCase{
-		equalTestCase{"[]string-1a-1b", slice1a, slice1b, justDeepEqual},
-		equalTestCase{"[]string-1a-2", slice1a, slice2, notEqual},
+		{"[]string-1a-1b", slice1a, slice1b, justDeepEqual},
+		{"[]string-1a-2", slice1a, slice2, notEqual},
 	}
 
 	deepEqualityTestCases = append(
@@ -202,11 +202,11 @@ var (
 	)
 
 	justJsonEqualTestCases = []equalTestCase{
-		equalTestCase{"map1a-struct", map1, struct1, justJsonEqual},
-		equalTestCase{"map1a-map2", map1, map2, notEqual},
-		equalTestCase{"map2-struct", map2, struct1, notEqual},
-		equalTestCase{"struct1-cs3", struct1, cs3, notEqual},
-		equalTestCase{"struct1-struct2", struct1, struct2, notEqual},
+		{"map1a-struct", map1, struct1, justJsonEqual},
+		{"map1a-map2", map1, map2, notEqual},
+		{"map2-struct", map2, struct1, notEqual},
+		{"struct1-cs3", struct1, cs3, notEqual},
+		{"struct1-struct2", struct1, struct2, notEqual},
 	}
 )
 
@@ -455,29 +455,29 @@ func TestHasSameElementsInternals(t *testing.T) {
 	strSendChanType := reflect.TypeOf(strSendChan)
 
 	acceptableCases := [][]reflect.Type{
-		[]reflect.Type{intArrayType, intArrayType},
-		[]reflect.Type{intSliceType, intArrayType},
-		[]reflect.Type{intArrayType, intSliceType},
-		[]reflect.Type{intSliceType, intSliceType},
-		[]reflect.Type{intChanType, intArrayType},
-		[]reflect.Type{intChanType, intSliceType},
-		[]reflect.Type{strArrayType, strArrayType},
-		[]reflect.Type{strSliceType, strArrayType},
-		[]reflect.Type{strArrayType, strSliceType},
-		[]reflect.Type{strSliceType, strSliceType},
-		[]reflect.Type{strChanType, strArrayType},
-		[]reflect.Type{strChanType, strSliceType},
+		{intArrayType, intArrayType},
+		{intSliceType, intArrayType},
+		{intArrayType, intSliceType},
+		{intSliceType, intSliceType},
+		{intChanType, intArrayType},
+		{intChanType, intSliceType},
+		{strArrayType, strArrayType},
+		{strSliceType, strArrayType},
+		{strArrayType, strSliceType},
+		{strSliceType, strSliceType},
+		{strChanType, strArrayType},
+		{strChanType, strSliceType},
 	}
 
 	unacceptableCases := [][]reflect.Type{
-		[]reflect.Type{strType, strArrayType},
-		[]reflect.Type{strType, strSliceType},
-		[]reflect.Type{strArrayType, intArrayType},
-		[]reflect.Type{intArrayType, strArrayType},
-		[]reflect.Type{strChanType, strChanType},
-		[]reflect.Type{strArrayType, strType},
-		[]reflect.Type{strSendChanType, strChanType},
-		[]reflect.Type{strSendChanType, strArrayType},
+		{strType, strArrayType},
+		{strType, strSliceType},
+		{strArrayType, intArrayType},
+		{intArrayType, strArrayType},
+		{strChanType, strChanType},
+		{strArrayType, strType},
+		{strSendChanType, strChanType},
+		{strSendChanType, strArrayType},
 	}
 
 	for i, testcase := range acceptableCases {

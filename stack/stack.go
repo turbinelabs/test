@@ -100,7 +100,7 @@ func (s *Stack) PopFrames(prefixes ...string) {
 
 // Examine filepaths and remove common path prefixes.
 func (s Stack) TrimPaths(pathList ...string) {
-	for i, _ := range s {
+	for i := range s {
 		for _, pfx := range pathList {
 			if strings.HasPrefix(s[i].filepath, pfx) {
 				s[i].filepath = s[i].filepath[len(pfx):]

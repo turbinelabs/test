@@ -14,13 +14,13 @@ var (
 		result:   passed,
 		duration: 1.234,
 		tests: []*test{
-			&test{
+			{
 				name:     "TestFoo",
 				result:   passed,
 				duration: 1.2,
 				output:   makeBuffer("some output"),
 			},
-			&test{
+			{
 				name:     "TestBar",
 				result:   passed,
 				duration: 0.3,
@@ -33,14 +33,14 @@ var (
 		result:   failed,
 		duration: 1.234,
 		tests: []*test{
-			&test{
+			{
 				name:     "TestFoo",
 				result:   failed,
 				duration: 1.2,
 				failure:  makeBuffer("some assertion"),
 				output:   makeBuffer("some output"),
 			},
-			&test{
+			{
 				name:     "TestBar",
 				result:   passed,
 				duration: 0.3,
@@ -53,12 +53,12 @@ var (
 		result:   passed,
 		duration: 1.234,
 		tests: []*test{
-			&test{
+			{
 				name:     "TestFoo",
 				result:   passed,
 				duration: 1.2,
 			},
-			&test{
+			{
 				name:     "TestBar",
 				result:   skipped,
 				duration: 0.0,
