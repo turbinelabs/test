@@ -3,7 +3,7 @@ package main
 import (
 	"testing"
 
-	"github.com/turbinelabs/tbn/test/assert"
+	"github.com/turbinelabs/test/assert"
 )
 
 func TestExtractPackageFromTestExecutable(t *testing.T) {

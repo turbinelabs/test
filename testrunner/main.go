@@ -23,7 +23,7 @@ const (
 	ENV_OUTPUT_DIR   = "TEST_RUNNER_OUTPUT"
 )
 
-var RootPackage = getEnv(ENV_ROOT_PACKAGE, "github.com/turbinelabs/tbn")
+var RootPackage = getEnv(ENV_ROOT_PACKAGE, "github.com/turbinelabs")
 
 var TestOutput = getEnv(ENV_OUTPUT_DIR, "testresults")
 

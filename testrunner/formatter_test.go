@@ -5,12 +5,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/turbinelabs/tbn/test/assert"
+	"github.com/turbinelabs/test/assert"
 )
 
 var (
 	passingSuite = &testPackage{
-		name:     "github.com/turbinelabs/tbn/something",
+		name:     "github.com/turbinelabs/something",
 		result:   passed,
 		duration: 1.234,
 		tests: []*test{
@@ -29,7 +29,7 @@ var (
 	}
 
 	failingSuite = &testPackage{
-		name:     "github.com/turbinelabs/tbn/something",
+		name:     "github.com/turbinelabs/something",
 		result:   failed,
 		duration: 1.234,
 		tests: []*test{
@@ -49,7 +49,7 @@ var (
 	}
 
 	skippedSuite = &testPackage{
-		name:     "github.com/turbinelabs/tbn/something",
+		name:     "github.com/turbinelabs/something",
 		result:   passed,
 		duration: 1.234,
 		tests: []*test{
@@ -78,7 +78,7 @@ func TestGenerateReportSuccess(t *testing.T) {
 	assert.Equal(t, len(suites.Suites), 1)
 
 	suite := suites.Suites[0]
-	assert.Equal(t, suite.Name, "github.com/turbinelabs/tbn/something")
+	assert.Equal(t, suite.Name, "github.com/turbinelabs/something")
 	assert.Equal(t, suite.Tests, 2)
 	assert.Equal(t, suite.Failures, 0)
 	assert.Equal(t, suite.Duration, "1.234")
@@ -106,7 +106,7 @@ func TestGenerateReportFailure(t *testing.T) {
 	assert.Equal(t, len(suites.Suites), 1)
 
 	suite := suites.Suites[0]
-	assert.Equal(t, suite.Name, "github.com/turbinelabs/tbn/something")
+	assert.Equal(t, suite.Name, "github.com/turbinelabs/something")
 	assert.Equal(t, suite.Tests, 2)
 	assert.Equal(t, suite.Failures, 1)
 	assert.Equal(t, suite.Duration, "1.234")
@@ -137,7 +137,7 @@ func TestGenerateReportSkipped(t *testing.T) {
 	assert.Equal(t, len(suites.Suites), 1)
 
 	suite := suites.Suites[0]
-	assert.Equal(t, suite.Name, "github.com/turbinelabs/tbn/something")
+	assert.Equal(t, suite.Name, "github.com/turbinelabs/something")
 	assert.Equal(t, suite.Tests, 2)
 	assert.Equal(t, suite.Failures, 0)
 	assert.Equal(t, suite.Duration, "1.234")
@@ -168,7 +168,7 @@ func TestWriteReportSuccess(t *testing.T) {
 	s := strings.Replace(buf.String(), "\n", "", -1)
 
 	assert.MatchesRegex(t, s, `^<testsuites>.*</testsuites>$`)
-	assert.MatchesRegex(t, s, `<testsuite .*name="github.com/turbinelabs/tbn/something".*>`)
+	assert.MatchesRegex(t, s, `<testsuite .*name="github.com/turbinelabs/something".*>`)
 	assert.MatchesRegex(t, s, `<testsuite .*tests="2".*>`)
 	assert.MatchesRegex(t, s, `<testsuite .*failures="0".*>`)
 	assert.MatchesRegex(t, s, `<testsuite .*time="1.234".*>`)
@@ -186,7 +186,7 @@ func TestWriteReportFailure(t *testing.T) {
 	s := strings.Replace(buf.String(), "\n", "", -1)
 
 	assert.MatchesRegex(t, s, `^<testsuites>.*</testsuites>$`)
-	assert.MatchesRegex(t, s, `<testsuite .*name="github.com/turbinelabs/tbn/something".*>`)
+	assert.MatchesRegex(t, s, `<testsuite .*name="github.com/turbinelabs/something".*>`)
 	assert.MatchesRegex(t, s, `<testsuite .*tests="2".*>`)
 	assert.MatchesRegex(t, s, `<testsuite .*failures="1".*>`)
 	assert.MatchesRegex(t, s, `<testcase .*classname="something".*>`)
@@ -202,7 +202,7 @@ func TestWriteReportSkipped(t *testing.T) {
 	s := strings.Replace(buf.String(), "\n", "", -1)
 
 	assert.MatchesRegex(t, s, `^<testsuites>.*</testsuites>$`)
-	assert.MatchesRegex(t, s, `<testsuite .*name="github.com/turbinelabs/tbn/something".*>`)
+	assert.MatchesRegex(t, s, `<testsuite .*name="github.com/turbinelabs/something".*>`)
 	assert.MatchesRegex(t, s, `<testsuite .*tests="2".*>`)
 	assert.MatchesRegex(t, s, `<testsuite .*failures="0".*>`)
 	assert.MatchesRegex(t, s, `<testcase .*classname="something".*>`)

@@ -6,11 +6,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/turbinelabs/tbn/test/assert"
+	"github.com/turbinelabs/test/assert"
 )
 
 const (
-	testPackageName = "github.com/turbinelabs/tbn/agent/sdagentctl/helper"
+	testPackageName = "github.com/turbinelabs/agent/sdagentctl/helper"
 
 	SinglePackageVerbose = `=== RUN   TestWrapAndCallAgentNoErr
 --- PASS: TestWrapAndCallAgentNoErr (0.01s)
@@ -163,7 +163,7 @@ func testSuccess(t *testing.T, testdata string) {
 	duration := 880 * time.Millisecond
 	pkg := parseTestOutput(testPackageName, duration, bytes.NewBuffer([]byte(testdata)))
 
-	assert.Equal(t, pkg.name, "github.com/turbinelabs/tbn/agent/sdagentctl/helper")
+	assert.Equal(t, pkg.name, "github.com/turbinelabs/agent/sdagentctl/helper")
 	assert.Equal(t, pkg.result, passed)
 	assert.Equal(t, pkg.duration, 0.88)
 	assert.Equal(t, len(pkg.tests), 11)
@@ -226,7 +226,7 @@ func testFailure(t *testing.T, testdata string) {
 	duration := 11 * time.Second
 	pkg := parseTestOutput(testPackageName, duration, bytes.NewBuffer([]byte(testdata)))
 
-	assert.Equal(t, pkg.name, "github.com/turbinelabs/tbn/agent/sdagentctl/helper")
+	assert.Equal(t, pkg.name, "github.com/turbinelabs/agent/sdagentctl/helper")
 	assert.Equal(t, pkg.result, failed)
 	assert.Equal(t, pkg.duration, 11.0)
 	assert.Equal(t, len(pkg.tests), 11)

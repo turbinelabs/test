@@ -10,8 +10,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/turbinelabs/tbn/test/check"
-	"github.com/turbinelabs/tbn/test/stack"
+	"github.com/turbinelabs/test/check"
+	"github.com/turbinelabs/test/stack"
 )
 
 const goPath = "/usr/local/"
