@@ -10,13 +10,11 @@ import (
 	"strings"
 	"syscall"
 	"time"
-)
 
-// Invocation:
-// go test -exec testrunner ...
-//
-// go test will execute testrunner once for each package, passing the
-// package test executable and all test flags as arguments.
+	"github.com/turbinelabs/test/formatter/junit"
+	"github.com/turbinelabs/test/parser"
+	"github.com/turbinelabs/test/testrunner/results"
+)
 
 const (
 	ENV_ROOT_PACKAGE = "TEST_RUNNER_ROOT_PACKAGE"
@@ -29,10 +27,10 @@ var TestOutput = getEnv(ENV_OUTPUT_DIR, "testresults")
 
 func main() {
 	testExecutable := os.Args[1]
-	testArgs := forceVerboseFlag(os.Args[2:])
-
 	pkgName := extractPackageFromTestExecutable(testExecutable)
 	pkgFileName := strings.Replace(pkgName, "/", ".", -1)
+
+	testArgs := parser.GoLangParser.FlagFn(os.Args[2:])
 
 	test := exec.Command(testExecutable, testArgs...)
 
@@ -59,20 +57,25 @@ func main() {
 
 	duration := time.Since(start)
 
-	pkg := parseTestOutput(pkgName, duration, &output)
+	pkgs, err := parser.GoLangParser.ParseFn(pkgName, duration, &output)
+	if err != nil {
+		panic(err)
+	}
 
 	// Parsing errors may result in the package being marked as a
 	// failure even though the test binary reported success.
 	// Convert exit status to failure since it may mean some test
 	// results were not properly parsed.
-	if pkg.result == failed && exitStatus == 0 {
-		exitStatus = 1
+	for _, pkg := range pkgs {
+		if pkg.Result == results.Failed && exitStatus == 0 {
+			exitStatus = 1
+		}
 	}
 
 	report := openFile(pkgFileName)
 	defer report.Close()
 
-	writeReport(report, pkg)
+	junit.WriteReport(report, pkgs)
 
 	os.Exit(exitStatus)
 }
@@ -108,19 +111,6 @@ func getEnv(name, defaultValue string) string {
 		return value
 	}
 	return defaultValue
-}
-
-func forceVerboseFlag(args []string) []string {
-	for i, arg := range args {
-		if arg == "-test.v=true" {
-			return args
-		} else if arg == "-test.v=false" {
-			args = append(args[0:i], args[i+1:]...)
-			break
-		}
-	}
-
-	return append(args, "-test.v=true")
 }
 
 func extractPackageFromTestExecutable(exec string) string {

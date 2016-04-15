@@ -1,4 +1,4 @@
-package main
+package junit
 
 import (
 	"bytes"
@@ -6,64 +6,80 @@ import (
 	"testing"
 
 	"github.com/turbinelabs/test/assert"
+	"github.com/turbinelabs/test/testrunner/results"
 )
 
 var (
-	passingSuite = &testPackage{
-		name:     "github.com/turbinelabs/something",
-		result:   passed,
-		duration: 1.234,
-		tests: []*test{
-			{
-				name:     "TestFoo",
-				result:   passed,
-				duration: 1.2,
-				output:   makeBuffer("some output"),
-			},
-			{
-				name:     "TestBar",
-				result:   passed,
-				duration: 0.3,
-			},
-		},
-	}
-
-	failingSuite = &testPackage{
-		name:     "github.com/turbinelabs/something",
-		result:   failed,
-		duration: 1.234,
-		tests: []*test{
-			{
-				name:     "TestFoo",
-				result:   failed,
-				duration: 1.2,
-				failure:  makeBuffer("some assertion"),
-				output:   makeBuffer("some output"),
-			},
-			{
-				name:     "TestBar",
-				result:   passed,
-				duration: 0.3,
+	passingSuite = []*results.TestPackage{
+		{
+			Name:     "github.com/turbinelabs/something",
+			Result:   results.Passed,
+			Duration: 1.234,
+			Tests: []*results.Test{
+				{
+					Name:     "TestFoo",
+					Result:   results.Passed,
+					Duration: 1.2,
+					Output:   makeBuffer("some output"),
+				},
+				{
+					Name:     "TestBar",
+					Result:   results.Passed,
+					Duration: 0.3,
+				},
 			},
 		},
 	}
 
-	skippedSuite = &testPackage{
-		name:     "github.com/turbinelabs/something",
-		result:   passed,
-		duration: 1.234,
-		tests: []*test{
-			{
-				name:     "TestFoo",
-				result:   passed,
-				duration: 1.2,
+	failingSuite = []*results.TestPackage{
+		{
+			Name:     "github.com/turbinelabs/something",
+			Result:   results.Failed,
+			Duration: 1.234,
+			Tests: []*results.Test{
+				{
+					Name:     "TestFoo",
+					Result:   results.Failed,
+					Duration: 1.2,
+					Failure:  makeBuffer("some assertion"),
+					Output:   makeBuffer("some output"),
+				},
+				{
+					Name:     "TestBar",
+					Result:   results.Passed,
+					Duration: 0.3,
+				},
 			},
-			{
-				name:     "TestBar",
-				result:   skipped,
-				duration: 0.0,
-				output:   makeBuffer("skipped it"),
+		},
+	}
+
+	skippedSuite = []*results.TestPackage{
+		{
+			Name:     "github.com/turbinelabs/something",
+			Result:   results.Passed,
+			Duration: 1.234,
+			Tests: []*results.Test{
+				{
+					Name:     "TestFoo",
+					Result:   results.Passed,
+					Duration: 1.2,
+				},
+				{
+					Name:     "TestBar",
+					Result:   results.Skipped,
+					Duration: 0.0,
+					Output:   makeBuffer("skipped it"),
+				},
 			},
+		},
+	}
+
+	suiteOutput = []*results.TestPackage{
+		{
+			Name:     "github.com/turbinelabs/tbn/something",
+			Result:   results.Passed,
+			Duration: 1.234,
+			Output:   "the output",
 		},
 	}
 )
@@ -74,7 +90,7 @@ func makeBuffer(s string) bytes.Buffer {
 }
 
 func TestGenerateReportSuccess(t *testing.T) {
-	suites := generateReport(passingSuite)
+	suites := GenerateReport(passingSuite)
 	assert.Equal(t, len(suites.Suites), 1)
 
 	suite := suites.Suites[0]
@@ -91,7 +107,7 @@ func TestGenerateReportSuccess(t *testing.T) {
 	assert.Equal(t, testCase1.Duration, "1.200")
 	assert.Nil(t, testCase1.Skipped)
 	assert.Nil(t, testCase1.Failure)
-	assert.DeepEqual(t, testCase1.Output, &junitOutput{"some output"})
+	assert.DeepEqual(t, testCase1.Output, &JunitOutput{"some output"})
 
 	testCase2 := suite.TestCases[1]
 	assert.Equal(t, testCase2.Classname, "something")
@@ -102,7 +118,7 @@ func TestGenerateReportSuccess(t *testing.T) {
 }
 
 func TestGenerateReportFailure(t *testing.T) {
-	suites := generateReport(failingSuite)
+	suites := GenerateReport(failingSuite)
 	assert.Equal(t, len(suites.Suites), 1)
 
 	suite := suites.Suites[0]
@@ -118,11 +134,11 @@ func TestGenerateReportFailure(t *testing.T) {
 	assert.Equal(t, testCase1.Name, "TestFoo")
 	assert.Equal(t, testCase1.Duration, "1.200")
 	assert.Nil(t, testCase1.Skipped)
-	assert.DeepEqual(t, testCase1.Failure, &junitFailure{
+	assert.DeepEqual(t, testCase1.Failure, &JunitFailure{
 		Message:  "Failed",
 		Contents: "some assertion",
 	})
-	assert.DeepEqual(t, testCase1.Output, &junitOutput{"some output"})
+	assert.DeepEqual(t, testCase1.Output, &JunitOutput{"some output"})
 
 	testCase2 := suite.TestCases[1]
 	assert.Equal(t, testCase2.Classname, "something")
@@ -133,7 +149,7 @@ func TestGenerateReportFailure(t *testing.T) {
 }
 
 func TestGenerateReportSkipped(t *testing.T) {
-	suites := generateReport(skippedSuite)
+	suites := GenerateReport(skippedSuite)
 	assert.Equal(t, len(suites.Suites), 1)
 
 	suite := suites.Suites[0]
@@ -155,15 +171,33 @@ func TestGenerateReportSkipped(t *testing.T) {
 	assert.Equal(t, testCase2.Classname, "something")
 	assert.Equal(t, testCase2.Name, "TestBar")
 	assert.Equal(t, testCase2.Duration, "0.000")
-	assert.DeepEqual(t, testCase2.Skipped, &junitSkipMessage{
+	assert.DeepEqual(t, testCase2.Skipped, &JunitSkipMessage{
 		Message: "skipped it",
 	})
 	assert.Nil(t, testCase2.Failure)
 }
 
+func TestGenerateReportCombined(t *testing.T) {
+	combinedInput := append([]*results.TestPackage{}, passingSuite...)
+	combinedInput = append(combinedInput, failingSuite...)
+	combinedInput = append(combinedInput, skippedSuite...)
+
+	suites := GenerateReport(combinedInput)
+	assert.Equal(t, len(suites.Suites), 3)
+}
+
+func TestGenerateReportSuiteOutput(t *testing.T) {
+	suites := GenerateReport(suiteOutput)
+	assert.Equal(t, len(suites.Suites), 1)
+
+	suite := suites.Suites[0]
+	assert.NonNil(t, suite.Output)
+	assert.Equal(t, suite.Output.Contents, "the output")
+}
+
 func TestWriteReportSuccess(t *testing.T) {
 	var buf bytes.Buffer
-	writeReport(&buf, passingSuite)
+	WriteReport(&buf, passingSuite)
 
 	s := strings.Replace(buf.String(), "\n", "", -1)
 
@@ -181,7 +215,7 @@ func TestWriteReportSuccess(t *testing.T) {
 
 func TestWriteReportFailure(t *testing.T) {
 	var buf bytes.Buffer
-	writeReport(&buf, failingSuite)
+	WriteReport(&buf, failingSuite)
 
 	s := strings.Replace(buf.String(), "\n", "", -1)
 
@@ -197,7 +231,7 @@ func TestWriteReportFailure(t *testing.T) {
 
 func TestWriteReportSkipped(t *testing.T) {
 	var buf bytes.Buffer
-	writeReport(&buf, skippedSuite)
+	WriteReport(&buf, skippedSuite)
 
 	s := strings.Replace(buf.String(), "\n", "", -1)
 

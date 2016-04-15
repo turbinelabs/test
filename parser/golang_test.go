@@ -1,4 +1,4 @@
-package main
+package parser
 
 import (
 	"bytes"
@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/turbinelabs/test/assert"
+	"github.com/turbinelabs/test/testrunner/results"
 )
 
 const (
@@ -157,25 +158,51 @@ FAIL
 coverage: 57.1% of statements
 exit status 1
 `
+	SkippedTests = `=== RUN   TestPatchAgentErr
+--- PASS: TestPatchAgentErr (0.10s)
+=== RUN   TestPatchDryRun
+--- SKIP: TestPatchDryRun (0.0s)
+	some_path.go:101: reason
+PASS
+coverage: 57.1% of statements
+`
+
+	NoTests = `PASS
+`
+
+	NoPackageResultFailure = `=== RUN   TestPatchAgentErr
+--- PASS: TestPatchAgentErr (0.10s)
+`
+
+	MultiplePackageFailure = `=== RUN   TestPatchAgentErr1
+--- PASS: TestPatchAgentErr1 (0.10s)
+PASS
+=== RUN   TestPatchAgentErr2
+--- PASS: TestPatchAgentErr2 (0.10s)
+PASS
+`
 )
 
 func testSuccess(t *testing.T, testdata string) {
 	duration := 880 * time.Millisecond
-	pkg := parseTestOutput(testPackageName, duration, bytes.NewBuffer([]byte(testdata)))
+	pkgs, err := ParseTestOutput(testPackageName, duration, bytes.NewBuffer([]byte(testdata)))
+	assert.Nil(t, err)
+	assert.Equal(t, len(pkgs), 1)
 
-	assert.Equal(t, pkg.name, "github.com/turbinelabs/agent/sdagentctl/helper")
-	assert.Equal(t, pkg.result, passed)
-	assert.Equal(t, pkg.duration, 0.88)
-	assert.Equal(t, len(pkg.tests), 11)
-	assert.Equal(t, pkg.output, testdata)
+	pkg := pkgs[0]
+	assert.Equal(t, pkg.Name, "github.com/turbinelabs/agent/sdagentctl/helper")
+	assert.Equal(t, pkg.Result, results.Passed)
+	assert.Equal(t, pkg.Duration, 0.88)
+	assert.Equal(t, len(pkg.Tests), 11)
+	assert.Equal(t, pkg.Output, testdata)
 
-	names := make([]string, len(pkg.tests))
-	for i, test := range pkg.tests {
-		names[i] = test.name
-		assert.Equal(t, test.result, passed)
-		assert.Equal(t, test.duration, 0.01*(1.0+float64(i)))
-		assert.Equal(t, test.output.String(), "")
-		assert.Equal(t, test.failure.String(), "")
+	names := make([]string, len(pkg.Tests))
+	for i, test := range pkg.Tests {
+		names[i] = test.Name
+		assert.Equal(t, test.Result, results.Passed)
+		assert.Equal(t, test.Duration, 0.01*(1.0+float64(i)))
+		assert.Equal(t, test.Output.String(), "")
+		assert.Equal(t, test.Failure.String(), "")
 	}
 
 	assert.DeepEqual(t, names, []string{
@@ -203,54 +230,59 @@ func TestParseOutputOnVerboseCoverageSuccess(t *testing.T) {
 
 func TestParseOutputOnVerboseCoverageOutputSuccess(t *testing.T) {
 	duration := 880 * time.Millisecond
-	pkg := parseTestOutput(
+	pkgs, err := ParseTestOutput(
 		testPackageName,
 		duration,
 		bytes.NewBuffer([]byte(SinglePackageVerboseCoverageOutput)))
+	assert.Nil(t, err)
+	assert.Equal(t, len(pkgs), 1)
 
-	assert.Equal(t, len(pkg.tests), 11)
+	pkg := pkgs[0]
+	assert.Equal(t, len(pkg.Tests), 11)
 
-	for i, test := range pkg.tests {
-		assert.Equal(t, test.result, passed)
+	for i, test := range pkg.Tests {
+		assert.Equal(t, test.Result, results.Passed)
 		switch i {
 		case 0, 10:
-			assert.Equal(t, test.output.String(), "this is some test output\n")
+			assert.Equal(t, test.Output.String(), "this is some test output\n")
 		default:
-			assert.Equal(t, test.output.String(), "")
+			assert.Equal(t, test.Output.String(), "")
 		}
-
 	}
 }
 
 func testFailure(t *testing.T, testdata string) {
 	duration := 11 * time.Second
-	pkg := parseTestOutput(testPackageName, duration, bytes.NewBuffer([]byte(testdata)))
+	pkgs, err := ParseTestOutput(testPackageName, duration, bytes.NewBuffer([]byte(testdata)))
+	assert.Nil(t, err)
+	assert.Equal(t, len(pkgs), 1)
 
-	assert.Equal(t, pkg.name, "github.com/turbinelabs/agent/sdagentctl/helper")
-	assert.Equal(t, pkg.result, failed)
-	assert.Equal(t, pkg.duration, 11.0)
-	assert.Equal(t, len(pkg.tests), 11)
+	pkg := pkgs[0]
+	assert.Equal(t, pkg.Name, "github.com/turbinelabs/agent/sdagentctl/helper")
+	assert.Equal(t, pkg.Result, results.Failed)
+	assert.Equal(t, pkg.Duration, 11.0)
+	assert.Equal(t, len(pkg.Tests), 11)
 
-	for i, test := range pkg.tests {
+	for i, test := range pkg.Tests {
 		if i == 9 {
-			assert.Equal(t, test.result, failed)
-			assert.MatchesRegex(t, test.failure.String(), `got: .*, want .*`)
-			assert.True(t, len(strings.Split(test.failure.String(), "\n")) > 1)
+			assert.Equal(t, test.Result, results.Failed)
+			assert.MatchesRegex(t, test.Failure.String(), `got: .*, want .*`)
+			assert.True(t, len(strings.Split(test.Failure.String(), "\n")) > 1)
 		} else {
-			assert.Equal(t, test.result, passed)
-			assert.Equal(t, test.failure.String(), "")
+			assert.Equal(t, test.Result, results.Passed)
+			assert.Equal(t, test.Failure.String(), "")
 		}
 
 		switch i {
 		case 8:
-			assert.Equal(t, test.output.String(), "this is some test output\n")
+			assert.Equal(t, test.Output.String(), "this is some test output\n")
 		case 9:
-			assert.Equal(t, test.output.String(), "this is some other test output\n")
+			assert.Equal(t, test.Output.String(), "this is some other test output\n")
 		default:
-			assert.Equal(t, test.output.String(), "")
+			assert.Equal(t, test.Output.String(), "")
 		}
 
-		assert.Equal(t, test.duration, 1.0)
+		assert.Equal(t, test.Duration, 1.0)
 	}
 }
 
@@ -260,4 +292,84 @@ func TestParseOutputOnVerboseFailure(t *testing.T) {
 
 func TestParseOutputOnVerboseCoverageFailure(t *testing.T) {
 	testFailure(t, SinglePackageVerboseCoverageFailure)
+}
+
+func TestParseOutputOnSkippedTest(t *testing.T) {
+	duration := 11 * time.Second
+	pkgs, err := ParseTestOutput(testPackageName, duration, bytes.NewBuffer([]byte(SkippedTests)))
+	assert.Nil(t, err)
+	assert.Equal(t, len(pkgs), 1)
+
+	pkg := pkgs[0]
+	assert.Equal(t, pkg.Name, "github.com/turbinelabs/agent/sdagentctl/helper")
+	assert.Equal(t, pkg.Result, results.Passed)
+	assert.Equal(t, pkg.Duration, 11.0)
+	assert.Equal(t, len(pkg.Tests), 2)
+
+	test1 := pkg.Tests[0]
+	assert.Equal(t, test1.Result, results.Passed)
+
+	test2 := pkg.Tests[1]
+	assert.Equal(t, test2.Result, results.Skipped)
+	assert.MatchesRegex(t, test2.Failure.String(), `reason`)
+}
+
+func TestParseOutputOnNoTests(t *testing.T) {
+	duration := 11 * time.Second
+	pkgs, err := ParseTestOutput(testPackageName, duration, bytes.NewBuffer([]byte(NoTests)))
+	assert.Nil(t, err)
+	assert.Equal(t, len(pkgs), 1)
+
+	pkg := pkgs[0]
+	assert.Equal(t, pkg.Name, "github.com/turbinelabs/agent/sdagentctl/helper")
+	assert.Equal(t, pkg.Result, results.Passed)
+	assert.Equal(t, pkg.Duration, 11.0)
+	assert.Equal(t, len(pkg.Tests), 0)
+}
+
+func TestParseOutputOnNoPackageResult(t *testing.T) {
+	duration := 11 * time.Second
+	pkgs, err := ParseTestOutput(
+		testPackageName,
+		duration,
+		bytes.NewBuffer([]byte(NoPackageResultFailure)))
+	assert.Nil(t, err)
+	assert.Equal(t, len(pkgs), 1)
+
+	// package failed
+	pkg := pkgs[0]
+	assert.Equal(t, pkg.Name, "github.com/turbinelabs/agent/sdagentctl/helper")
+	assert.Equal(t, pkg.Result, results.Failed)
+	assert.Equal(t, pkg.Duration, 11.0)
+	assert.Equal(t, len(pkg.Tests), 1)
+
+	// test succeeded
+	test1 := pkg.Tests[0]
+	assert.Equal(t, test1.Result, results.Passed)
+}
+
+func TestParseOutputOnMultiplePackages(t *testing.T) {
+	duration := 11 * time.Second
+	pkgs, err := ParseTestOutput(
+		testPackageName,
+		duration,
+		bytes.NewBuffer([]byte(MultiplePackageFailure)))
+	assert.Nil(t, pkgs)
+	assert.NonNil(t, err)
+	assert.Equal(t, err.Error(), "expected only a single package")
+
+}
+
+func TestForceVerboseFlag(t *testing.T) {
+	nonVerboseArgs := []string{"-test.timeout=4s"}
+	result := ForceVerboseFlag(nonVerboseArgs)
+	assert.Equal(t, result[len(result)-1], "-test.v=true")
+
+	verboseArgs := []string{"-test.v=true", "-test.timeout=4s"}
+	result = ForceVerboseFlag(verboseArgs)
+	assert.DeepEqual(t, result, verboseArgs)
+
+	verboseOffArgs := []string{"-test.v=false"}
+	result = ForceVerboseFlag(verboseOffArgs)
+	assert.DeepEqual(t, result, []string{"-test.v=true"})
 }
