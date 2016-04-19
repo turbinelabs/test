@@ -40,7 +40,8 @@ func (e equalTestCase) run(
 	f func(testing.TB, interface{}, interface{}) bool,
 	expectEqual func(equalTestCase) bool,
 ) {
-	testT := new(testing.T)
+	tr := Tracing(t)
+	testT := &testing.T{}
 
 	result := f(testT, e.a, e.b)
 	expectedResult := expectEqual(e)
@@ -50,7 +51,7 @@ func (e equalTestCase) run(
 		if !expectedResult {
 			comparison = "not equal"
 		}
-		t.Errorf("%s: expected %+v to %s %+v", e.name, e.a, comparison, e.b)
+		tr.Errorf("%s: expected %+v to %s %+v", e.name, e.a, comparison, e.b)
 	}
 }
 
@@ -65,13 +66,14 @@ func (n nilTestCase) run(
 	f func(testing.TB, interface{}) bool,
 	expectNil func(nilTestCase) bool,
 ) {
-	testT := new(testing.T)
+	tr := Tracing(t)
+	testT := &testing.T{}
 
 	result := f(testT, n.v)
 	expectedResult := expectNil(n)
 
 	if result != expectedResult {
-		t.Errorf("%s: expected %t, got %t for %+v", n.name, expectedResult, result, n.v)
+		tr.Errorf("%s: expected %t, got %t for %+v", n.name, expectedResult, result, n.v)
 	}
 }
 
@@ -210,6 +212,28 @@ var (
 	}
 )
 
+func TestTracing(t *testing.T) {
+	switch obj := Tracing(t).(type) {
+	case *TracingTB:
+		Equal(obj, obj.TB, t)
+	default:
+		obj.Errorf("got *TracingTB, want %T", obj)
+	}
+}
+
+func TestTracingNoWrap(t *testing.T) {
+	tr := Tracing(t)
+	obj := Tracing(tr)
+	Equal(tr, tr, obj)
+}
+
+func TestTracingNoWrapG(t *testing.T) {
+	Group("Foo", t, func(g *G) {
+		obj := Tracing(g)
+		Equal(g, g, obj)
+	})
+}
+
 func TestNonNil(t *testing.T) {
 	for _, test := range nilnessTestCases {
 		test.run(
@@ -303,82 +327,87 @@ func TestNotEqualJson(t *testing.T) {
 }
 
 func TestMatchesRegex(t *testing.T) {
-	mockT := new(testing.T)
+	tr := Tracing(t)
+	mockT := &testing.T{}
 
 	if !MatchesRegex(mockT, "xyzpdq", "^xyz") {
-		t.Errorf("expected 'xyzpdq' to match '^xyz'")
+		tr.Errorf("expected 'xyzpdq' to match '^xyz'")
 	}
 	if !MatchesRegex(mockT, "xyzpdq", "pdq$") {
-		t.Errorf("expected 'xyzpdq' to match 'pdq$'")
+		tr.Errorf("expected 'xyzpdq' to match 'pdq$'")
 	}
 	if !MatchesRegex(mockT, "xyzpdq", "zp") {
-		t.Errorf("expected 'xyzpdq' to match 'zp'")
+		tr.Errorf("expected 'xyzpdq' to match 'zp'")
 	}
 	if !MatchesRegex(mockT, "xyzpdq", "^xy.+dq$") {
-		t.Errorf("expected 'xyzpdq' to match '^xy.+dq$'")
+		tr.Errorf("expected 'xyzpdq' to match '^xy.+dq$'")
 	}
 
 	if MatchesRegex(mockT, "xyzpdq", "a+") {
-		t.Errorf("expected 'xyzpdq' to not match 'a+'")
+		tr.Errorf("expected 'xyzpdq' to not match 'a+'")
 	}
 }
 
 func TestDoesNotMatchRegex(t *testing.T) {
-	mockT := new(testing.T)
+	tr := Tracing(t)
+	mockT := &testing.T{}
 
 	if DoesNotMatchRegex(mockT, "xyzpdq", "^xyz") {
-		t.Errorf("expected 'xyzpdq' to fail by matching '^xyz'")
+		tr.Errorf("expected 'xyzpdq' to fail by matching '^xyz'")
 	}
 
 	if !DoesNotMatchRegex(mockT, "xyzpdq", "a+") {
-		t.Errorf("expected 'xyzpdq' to not match 'a+'")
+		tr.Errorf("expected 'xyzpdq' to not match 'a+'")
 	}
 }
 
 func TestErrorContains(t *testing.T) {
-	mockT := new(testing.T)
+	tr := Tracing(t)
+	mockT := &testing.T{}
 
 	err := fmt.Errorf("this error contains: magic!")
 
 	if !ErrorContains(mockT, err, "magic") {
-		t.Errorf("expected '%s' to contain 'magic'", err.Error())
+		tr.Errorf("expected '%s' to contain 'magic'", err.Error())
 	}
 	if ErrorContains(mockT, err, "special sauce") {
-		t.Errorf("expected '%s' not to contain 'special sauce'", err.Error())
+		tr.Errorf("expected '%s' not to contain 'special sauce'", err.Error())
 	}
 	if ErrorContains(mockT, nil, "anything") {
-		t.Errorf("expected nil error not to pass check")
+		tr.Errorf("expected nil error not to pass check")
 	}
 }
 
 func TestErrorDoesNotContain(t *testing.T) {
-	mockT := new(testing.T)
+	tr := Tracing(t)
+	mockT := &testing.T{}
 
 	err := fmt.Errorf("this error contains: magic!")
 
 	if ErrorDoesNotContain(mockT, err, "magic") {
-		t.Errorf("expected '%s' to contain 'magic', but it did", err.Error())
+		tr.Errorf("expected '%s' to contain 'magic', but it did", err.Error())
 	}
 	if !ErrorDoesNotContain(mockT, err, "special sauce") {
-		t.Errorf("expected '%s' not to contain 'special sauce'", err.Error())
+		tr.Errorf("expected '%s' not to contain 'special sauce'", err.Error())
 	}
 	if ErrorDoesNotContain(mockT, nil, "anything") {
-		t.Errorf("expected nil error not to pass check")
+		tr.Errorf("expected nil error not to pass check")
 	}
 }
 
 func TestHasSameElements(t *testing.T) {
-	mockT := new(testing.T)
+	tr := Tracing(t)
+	mockT := &testing.T{}
 
 	expectSame := func(a, b interface{}) {
 		if !HasSameElements(mockT, a, b) {
-			t.Errorf("expected '%v' to have same elements as '%v'", a, b)
+			tr.Errorf("expected '%v' to have same elements as '%v'", a, b)
 		}
 	}
 
 	expectDifferent := func(a, b interface{}) {
 		if HasSameElements(mockT, a, b) {
-			t.Errorf("expected '%v' to not have same elements as '%v'", a, b)
+			tr.Errorf("expected '%v' to not have same elements as '%v'", a, b)
 		}
 	}
 
@@ -432,8 +461,8 @@ func TestHasSameElements(t *testing.T) {
 }
 
 func TestHasSameElementsInternals(t *testing.T) {
-	mockT := new(testing.T)
-	g := defaultGroup(mockT)
+	mockT := &testing.T{}
+	tr := Tracing(t)
 
 	strType := reflect.TypeOf("x")
 
@@ -483,8 +512,8 @@ func TestHasSameElementsInternals(t *testing.T) {
 	for i, testcase := range acceptableCases {
 		gotType := testcase[0]
 		wantType := testcase[1]
-		if !g.checkContainerTypes(gotType, wantType) {
-			t.Errorf(
+		if !checkContainerTypes(mockT, gotType, wantType) {
+			tr.Errorf(
 				"expected '%v' and '%v' to be accepted, but was not (case %d)",
 				gotType,
 				wantType,
@@ -495,8 +524,8 @@ func TestHasSameElementsInternals(t *testing.T) {
 	for i, testcase := range unacceptableCases {
 		gotType := testcase[0]
 		wantType := testcase[1]
-		if g.checkContainerTypes(gotType, wantType) {
-			t.Errorf(
+		if checkContainerTypes(mockT, gotType, wantType) {
+			tr.Errorf(
 				"expected '%v' and '%v' to be rejected, but was not (case %d)",
 				gotType,
 				wantType,
@@ -506,71 +535,75 @@ func TestHasSameElementsInternals(t *testing.T) {
 }
 
 func TestGroupPassing(t *testing.T) {
-	mockT := new(mockT)
+	tr := Tracing(t)
+	mockT := &mockT{}
 
 	Group("name", mockT, func(g *G) {
-		g.AssertTrue(true)
+		True(g, true)
 		g.Group("sub-group", func(g *G) {
-			g.AssertFalse(false)
+			False(g, false)
 		})
 	})
 
 	if len(mockT.log) != 0 {
-		t.Errorf("Expected no testing.T operations, got: %v", mockT.log)
+		tr.Errorf("Expected no testing.T operations, got: %v", mockT.log)
 	}
 }
 
 func TestGroupFailing(t *testing.T) {
-	mockT := new(mockT)
+	tr := Tracing(t)
+	mockT := &mockT{}
 
 	Group("name", mockT, func(g *G) {
-		g.AssertTrue(false)
+		True(g, false)
 		g.Group("sub-group", func(g *G) {
-			g.AssertFalse(false)
+			False(g, false)
 		})
 	})
 
 	if len(mockT.log) != 1 || mockT.log[0].op != "Errorf" {
-		t.Errorf("expected single Errorf op, got %+v", mockT.log)
+		tr.Errorf("got %+v, want single Errorf op", mockT.log)
 	}
 
 	expectedPrefix := "name: "
 	if mockT.log[0].args[0:len(expectedPrefix)] != expectedPrefix {
-		t.Errorf("got '%s', expected prefix '%s'", mockT.log[0].args, expectedPrefix)
+		tr.Errorf("got '%s', want prefix '%s'", mockT.log[0].args, expectedPrefix)
 	}
 }
 
 func TestNestedGroupFailing(t *testing.T) {
-	mockT := new(mockT)
+	tr := Tracing(t)
+	mockT := &mockT{}
 
 	Group("main-group", mockT, func(g *G) {
-		g.AssertTrue(true)
+		True(g, true)
 		g.Group("sub-group", func(g *G) {
-			g.AssertTrue(false)
+			True(g, false)
 		})
 	})
 
 	if len(mockT.log) != 1 || mockT.log[0].op != "Errorf" {
-		t.Errorf("expected single Errorf op, got %+v", mockT.log)
+		tr.Errorf("got %+v, want single Errorf op", mockT.log)
 	}
 
 	expectedPrefix := "main-group sub-group: "
 	if mockT.log[0].args[0:len(expectedPrefix)] != expectedPrefix {
-		t.Errorf("got '%s', expected prefix '%s'", mockT.log[0].args, expectedPrefix)
+		tr.Errorf("got '%s', want prefix '%s'", mockT.log[0].args, expectedPrefix)
 	}
 }
 
 func TestUngrouped(t *testing.T) {
-	mockT := new(mockT)
+	tr := Tracing(t)
+	mockT := &mockT{}
 
 	True(mockT, false)
 
 	if len(mockT.log) != 1 || mockT.log[0].op != "Errorf" {
-		t.Errorf("expected single Errorf op, got %+v", mockT.log)
+		tr.Errorf("got %+v, want single Errorf op", mockT.log)
 	}
 
 	expectedPrefix := "got: (bool) false, want (bool) true"
 	if mockT.log[0].args[0:len(expectedPrefix)] != expectedPrefix {
-		t.Errorf("got '%s', expected prefix '%s'", mockT.log[0].args, expectedPrefix)
+		tr.Errorf("got '%s', want prefix '%s'", mockT.log[0].args, expectedPrefix)
 	}
 }
