@@ -359,11 +359,20 @@ func assertSameArray(gotValue, wantValue []reflect.Value) string {
 			extraStr = fmt.Sprintf("; extra elements: %v", extra)
 		}
 
+		gotValueStr := []string{}
+		for _, gv := range gotValue {
+			gotValueStr = append(gotValueStr, fmt.Sprintf("<%T %v>", gv.Type().Name(), gv))
+		}
+		wantValueStr := []string{}
+		for _, wv := range wantValue {
+			wantValueStr = append(wantValueStr, fmt.Sprintf("<%T %v>", wv.Type().Name(), wv))
+		}
+
 		return fmt.Sprintf(
-			"got %v (len %d), wanted %v (len %d)%s%s",
-			gotValue,
+			"got [%v] (len %d), wanted [%v] (len %d)%s%s",
+			strings.Join(gotValueStr, ", "),
 			gotLen,
-			wantValue,
+			strings.Join(wantValueStr, ", "),
 			wantLen,
 			missingStr,
 			extraStr)
