@@ -290,6 +290,72 @@ func TestDeepEqual(t *testing.T) {
 	}
 }
 
+func TestArrayEqual(t *testing.T) {
+	var nilArray []string
+	emptyArray := []string{}
+	a1 := []string{"a"}
+	a2 := []string{"a", "b", "c", "d", "e"}
+	a3 := []string{"a", "b", "c", "d", "e"}
+	a4 := []string{"a", "b", "c"}
+	a5 := a3[0:3]
+
+	tr := Tracing(t)
+	mockT := &testing.T{}
+
+	if ArrayEqual(mockT, a1, "a") || ArrayEqual(mockT, "a", a1) {
+		tr.Errorf("expected ArrayEqual to fail on non-arrays")
+	}
+
+	if ArrayEqual(mockT, nilArray, a1) {
+		tr.Errorf("expected nil '%+v' not to equal '%+v'", nilArray, a1)
+	}
+	if ArrayEqual(mockT, emptyArray, a1) {
+		tr.Errorf("expected empty '%+v' not to equal '%+v'", emptyArray, a1)
+	}
+	if ArrayEqual(mockT, nilArray, emptyArray) {
+		tr.Errorf("expected nil '%+v' to not equal empty '%+v'", nilArray, emptyArray)
+	}
+	if ArrayEqual(mockT, emptyArray, nilArray) {
+		tr.Errorf("expected empty '%+v' to not equal nil '%+v'", emptyArray, nilArray)
+	}
+	if ArrayEqual(mockT, a1, a2) {
+		tr.Errorf("expected '%+v' not to equal '%+v'", a1, a2)
+	}
+	if !ArrayEqual(mockT, a2, a3) {
+		tr.Errorf("expected '%+v' to equal '%+v'", a2, a3)
+	}
+	if !ArrayEqual(mockT, a4, a5) {
+		tr.Errorf("expected '%+v' to equal '%+v'", a4, a5)
+	}
+}
+
+func TestMapEqual(t *testing.T) {
+	var nilMap map[string]int
+	emptyMap := map[string]int{}
+	m1 := map[string]int{"a": 1}
+	m2 := map[string]int{"a": 1, "b": 2, "c": 3}
+	m3 := map[string]int{"a": 1, "b": 2, "c": 3}
+
+	tr := Tracing(t)
+	mockT := &testing.T{}
+
+	if MapEqual(mockT, m1, "a") || MapEqual(mockT, "a", m1) {
+		tr.Errorf("expected MapEqual to fail on non-arrays")
+	}
+	if MapEqual(mockT, nilMap, emptyMap) {
+		tr.Errorf("expected nil '%+v' not to equal empty '%+v'", nilMap, emptyMap)
+	}
+	if MapEqual(mockT, emptyMap, nilMap) {
+		tr.Errorf("expected empty '%+v' not to equal nil '%+v'", emptyMap, nilMap)
+	}
+	if MapEqual(mockT, m1, m2) {
+		tr.Errorf("expected '%+v' not to equal '%+v'", m1, m2)
+	}
+	if !MapEqual(mockT, m2, m3) {
+		tr.Errorf("expected '%+v' to equal '%+v'", m2, m3)
+	}
+}
+
 func TestNotDeepEqual(t *testing.T) {
 	testCases := append(equalityTestCases, deepEqualityTestCases...)
 	for _, test := range testCases {

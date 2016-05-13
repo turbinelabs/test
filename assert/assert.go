@@ -158,8 +158,179 @@ func NotEqual(t testing.TB, got, want interface{}) bool {
 	return true
 }
 
+func isArrayLike(i interface{}) bool {
+	t := reflect.TypeOf(i)
+	if t == nil {
+		return false
+	}
+	kind := t.Kind()
+	return kind == reflect.Array || kind == reflect.Slice
+}
+
+// panics if a is not an array
+func arrayValues(a interface{}) []reflect.Value {
+	aValue := reflect.ValueOf(a)
+	if aValue.IsNil() {
+		return nil
+	}
+	valueArray := make([]reflect.Value, aValue.Len())
+	for i := range valueArray {
+		valueArray[i] = aValue.Index(i)
+	}
+	return valueArray
+}
+
+func ArrayEqual(t testing.TB, got, want interface{}) bool {
+	if !isArrayLike(got) || !isArrayLike(want) {
+		Tracing(t).Errorf("got: (%T) %+v, want (%T) %+v", got, got, want, want)
+		return false
+	}
+
+	gotValues := arrayValues(got)
+	wantValues := arrayValues(want)
+
+	if gotValues == nil && wantValues != nil {
+		Tracing(t).Errorf("got (%T) nil, want (%T) %+v", got, want, want)
+		return false
+	} else if wantValues == nil && gotValues != nil {
+		Tracing(t).Errorf("got (%T) %+v, want (%T) nil", got, got, want)
+		return false
+	}
+
+	gotLen := len(gotValues)
+	wantLen := len(wantValues)
+
+	errors := []string{}
+	for i := 0; i < gotLen || i < wantLen; i++ {
+		var gotIface, wantIface interface{}
+		gotValid := i < gotLen
+		if gotValid {
+			gotIface = gotValues[i].Interface()
+		}
+
+		wantValid := i < wantLen
+		if wantValid {
+			wantIface = wantValues[i].Interface()
+		}
+
+		var err string
+		if gotValid && wantValid {
+			if !reflect.DeepEqual(gotIface, wantIface) {
+				err = fmt.Sprintf(
+					"index %d: got: (%T) %+v, want: (%T) %+v",
+					i,
+					gotIface,
+					gotIface,
+					wantIface,
+					wantIface)
+			}
+		} else if gotValid {
+			err = fmt.Sprintf(
+				"index %d: got extra value: (%T) %+v",
+				i,
+				gotIface,
+				gotIface)
+		} else if wantValid {
+			err = fmt.Sprintf(
+				"index %d: missing wanted value: (%T) %+v",
+				i,
+				wantIface,
+				wantIface)
+		}
+
+		if err != "" {
+			errors = append(errors, err)
+		}
+	}
+
+	if len(errors) > 0 {
+		Tracing(t).Errorf("arrays not equal:\n%s", strings.Join(errors, "\n"))
+		return false
+	}
+	return true
+}
+
+func isMap(i interface{}) bool {
+	t := reflect.TypeOf(i)
+	return t != nil && t.Kind() == reflect.Map
+}
+
+func MapEqual(t testing.TB, got, want interface{}) bool {
+	if !isMap(got) || !isMap(want) {
+		Tracing(t).Errorf("got: (%T) %+v, want (%T) %+v", got, got, want, want)
+		return false
+	}
+
+	wantValue := reflect.ValueOf(want)
+	wantKeys := wantValue.MapKeys()
+
+	gotValue := reflect.ValueOf(got)
+	gotKeys := gotValue.MapKeys()
+
+	if gotValue.IsNil() && !wantValue.IsNil() {
+		Tracing(t).Errorf("got (%T) nil, want (%T) %+v", got, want, want)
+		return false
+	} else if wantValue.IsNil() && !gotValue.IsNil() {
+		Tracing(t).Errorf("got (%T) %+v, want (%T) nil", got, got, want)
+		return false
+	}
+
+	errors := []string{}
+	for _, wantKey := range wantKeys {
+		wantIface := wantValue.MapIndex(wantKey).Interface()
+
+		var err string
+		gotMapValue := gotValue.MapIndex(wantKey)
+		if gotMapValue.IsValid() {
+			gotIface := gotMapValue.Interface()
+			if !reflect.DeepEqual(gotIface, wantIface) {
+				err = fmt.Sprintf(
+					"key %+v: got value: (%T) %+v, want value: (%T) %+v",
+					wantKey.Interface(),
+					gotIface,
+					gotIface,
+					wantIface,
+					wantIface)
+			}
+		} else {
+			err = fmt.Sprintf(
+				"missing key %+v: wanted value: (%T) %+v",
+				wantKey.Interface(),
+				wantIface,
+				wantIface)
+		}
+		if err != "" {
+			errors = append(errors, err)
+		}
+	}
+
+	for _, gotKey := range gotKeys {
+		wantMapValue := wantValue.MapIndex(gotKey)
+		if !wantMapValue.IsValid() {
+			gotIface := gotValue.MapIndex(gotKey).Interface()
+			err := fmt.Sprintf(
+				"extra key %+v: unwanted value: (%T) %+v",
+				gotKey.Interface(),
+				gotIface,
+				gotIface)
+			errors = append(errors, err)
+		}
+	}
+
+	if len(errors) > 0 {
+		Tracing(t).Errorf("maps not equal:\n%s", strings.Join(errors, "\n"))
+		return false
+	}
+
+	return true
+}
+
 func DeepEqual(t testing.TB, got, want interface{}) bool {
-	if !reflect.DeepEqual(got, want) {
+	if isArrayLike(got) && isArrayLike(want) {
+		return ArrayEqual(t, got, want)
+	} else if isMap(got) && isMap(want) {
+		return MapEqual(t, got, want)
+	} else if !reflect.DeepEqual(got, want) {
 		Tracing(t).Errorf("got: (%T) %+v, want (%T) %+v", got, got, want, want)
 		return false
 	}
@@ -351,25 +522,25 @@ func assertSameArray(gotValue, wantValue []reflect.Value) string {
 	if gotLen != wantLen || len(extra) > 0 || len(missing) > 0 {
 		missingStr := ""
 		if len(missing) > 0 {
-			missingStr = fmt.Sprintf("; missing elements: %v", missing)
+			missingStr = fmt.Sprintf("; missing elements: %+v", missing)
 		}
 
 		extraStr := ""
 		if len(extra) > 0 {
-			extraStr = fmt.Sprintf("; extra elements: %v", extra)
+			extraStr = fmt.Sprintf("; extra elements: %+v", extra)
 		}
 
 		gotValueStr := []string{}
 		for _, gv := range gotValue {
-			gotValueStr = append(gotValueStr, fmt.Sprintf("<%T %v>", gv.Type().Name(), gv))
+			gotValueStr = append(gotValueStr, fmt.Sprintf("<%s> %+v", gv.Type().Name(), gv))
 		}
 		wantValueStr := []string{}
 		for _, wv := range wantValue {
-			wantValueStr = append(wantValueStr, fmt.Sprintf("<%T %v>", wv.Type().Name(), wv))
+			wantValueStr = append(wantValueStr, fmt.Sprintf("<%s> %+v", wv.Type().Name(), wv))
 		}
 
 		return fmt.Sprintf(
-			"got [%v] (len %d), wanted [%v] (len %d)%s%s",
+			"got [%s] (len %d), wanted [%s] (len %d)%s%s",
 			strings.Join(gotValueStr, ", "),
 			gotLen,
 			strings.Join(wantValueStr, ", "),
@@ -396,20 +567,13 @@ func HasSameElements(t testing.TB, got, want interface{}) bool {
 	}
 
 	gotValue := reflect.ValueOf(got)
-	wantValue := reflect.ValueOf(want)
 
-	wantValueArray := make([]reflect.Value, wantValue.Len())
-	for i := 0; i < wantValue.Len(); i++ {
-		wantValueArray[i] = wantValue.Index(i)
-	}
+	wantValueArray := arrayValues(want)
 
 	var msg string
 	switch gotType.Kind() {
 	case reflect.Array, reflect.Slice:
-		gotValueArray := make([]reflect.Value, gotValue.Len())
-		for i := 0; i < gotValue.Len(); i++ {
-			gotValueArray[i] = gotValue.Index(i)
-		}
+		gotValueArray := arrayValues(got)
 		msg = assertSameArray(gotValueArray, wantValueArray)
 
 	case reflect.Chan:
