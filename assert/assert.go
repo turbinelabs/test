@@ -74,11 +74,11 @@ type G struct {
 // holds only for assertion methods invoked with the `G` instance passed to the
 // given function:
 //
-// func TestThing(t *testing.T) {
+//     func TestThing(t *testing.T) {
 //         Group("group-name", t, func(g *assert.G) {
 //                 assert.True(g, true)
 //         })
-// }
+//     }
 //
 // Note that `testing.TB` is an interface implemented by `testing.T`.
 func Group(name string, t testing.TB, f func(*G)) {
@@ -91,13 +91,13 @@ func Group(name string, t testing.TB, f func(*G)) {
 // separator to form the prefix for the new group. The prefix holds only for
 // assertion methods invoked on the `G` instance passed to this given function:
 //
-// func TestThing(t *testing.T) {
+//     func TestThing(t *testing.T) {
 //         Group("group-name", t, func(g *assert.G) {
 //                 g.Group("nested-group-name", func(ng *assert.G) {
 //                         assert.True(ng, true)
 //                 })
 //         })
-// }
+//     }
 func (grp *G) Group(name string, f func(*G)) {
 	nestedName := fmt.Sprintf("%s %s", grp.Name, name)
 	nestedGrp := &G{Tracing(grp.TB), nestedName}
@@ -126,33 +126,39 @@ func (grp *G) Fatalf(format string, args ...interface{}) {
 // assert methods
 //
 
+// Nil asserts the nilness of `got`.
 func Nil(t testing.TB, got interface{}) bool {
 	if !check.IsNil(got) {
-		Tracing(t).Errorf("got (%T) %+v, want <nil>", got, got)
+		Tracing(t).Errorf("got (%T) %#v, want <nil>", got, got)
 		return false
 	}
 	return true
 }
 
+// NonNil asserts the non-nilness of `got`.
 func NonNil(t testing.TB, got interface{}) bool {
 	if check.IsNil(got) {
-		Tracing(t).Errorf("got (%T) %+v, want <non-nil>", got, got)
+		Tracing(t).Errorf("got (%T) %#v, want <non-nil>", got, got)
 		return false
 	}
 	return true
 }
 
+// Equal asserts that `got` == `want`, and will panic for types that can't
+// be compared with `==`.
 func Equal(t testing.TB, got, want interface{}) bool {
 	if got != want {
-		Tracing(t).Errorf("got: (%T) %+v, want (%T) %+v", got, got, want, want)
+		Tracing(t).Errorf("got: (%T) %#v, want (%T) %#v", got, got, want, want)
 		return false
 	}
 	return true
 }
 
+// Equal asserts that `got` != `want`, and will panic for types that can't
+// be compared with `!=`.
 func NotEqual(t testing.TB, got, want interface{}) bool {
 	if got == want {
-		Tracing(t).Errorf("got: (%T) %+v, want != (%T) %+v", got, got, want, want)
+		Tracing(t).Errorf("got: (%T) %#v, want != (%T) %#v", got, got, want, want)
 		return false
 	}
 	return true
@@ -182,7 +188,7 @@ func arrayValues(a interface{}) []reflect.Value {
 
 func ArrayEqual(t testing.TB, got, want interface{}) bool {
 	if !isArrayLike(got) || !isArrayLike(want) {
-		Tracing(t).Errorf("got: (%T) %+v, want (%T) %+v", got, got, want, want)
+		Tracing(t).Errorf("got: (%T) %#v, want (%T) %#v", got, got, want, want)
 		return false
 	}
 
@@ -190,10 +196,10 @@ func ArrayEqual(t testing.TB, got, want interface{}) bool {
 	wantValues := arrayValues(want)
 
 	if gotValues == nil && wantValues != nil {
-		Tracing(t).Errorf("got (%T) nil, want (%T) %+v", got, want, want)
+		Tracing(t).Errorf("got (%T) nil, want (%T) %#v", got, want, want)
 		return false
 	} else if wantValues == nil && gotValues != nil {
-		Tracing(t).Errorf("got (%T) %+v, want (%T) nil", got, got, want)
+		Tracing(t).Errorf("got (%T) %#v, want (%T) nil", got, got, want)
 		return false
 	}
 
@@ -217,7 +223,7 @@ func ArrayEqual(t testing.TB, got, want interface{}) bool {
 		if gotValid && wantValid {
 			if !reflect.DeepEqual(gotIface, wantIface) {
 				err = fmt.Sprintf(
-					"index %d: got: (%T) %+v, want: (%T) %+v",
+					"index %d: got: (%T) %#v, want: (%T) %#v",
 					i,
 					gotIface,
 					gotIface,
@@ -226,13 +232,13 @@ func ArrayEqual(t testing.TB, got, want interface{}) bool {
 			}
 		} else if gotValid {
 			err = fmt.Sprintf(
-				"index %d: got extra value: (%T) %+v",
+				"index %d: got extra value: (%T) %#v",
 				i,
 				gotIface,
 				gotIface)
 		} else if wantValid {
 			err = fmt.Sprintf(
-				"index %d: missing wanted value: (%T) %+v",
+				"index %d: missing wanted value: (%T) %#v",
 				i,
 				wantIface,
 				wantIface)
@@ -257,7 +263,7 @@ func isMap(i interface{}) bool {
 
 func MapEqual(t testing.TB, got, want interface{}) bool {
 	if !isMap(got) || !isMap(want) {
-		Tracing(t).Errorf("got: (%T) %+v, want (%T) %+v", got, got, want, want)
+		Tracing(t).Errorf("got: (%T) %#v, want (%T) %#v", got, got, want, want)
 		return false
 	}
 
@@ -268,10 +274,10 @@ func MapEqual(t testing.TB, got, want interface{}) bool {
 	gotKeys := gotValue.MapKeys()
 
 	if gotValue.IsNil() && !wantValue.IsNil() {
-		Tracing(t).Errorf("got (%T) nil, want (%T) %+v", got, want, want)
+		Tracing(t).Errorf("got (%T) nil, want (%T) %#v", got, want, want)
 		return false
 	} else if wantValue.IsNil() && !gotValue.IsNil() {
-		Tracing(t).Errorf("got (%T) %+v, want (%T) nil", got, got, want)
+		Tracing(t).Errorf("got (%T) %#v, want (%T) nil", got, got, want)
 		return false
 	}
 
@@ -285,7 +291,7 @@ func MapEqual(t testing.TB, got, want interface{}) bool {
 			gotIface := gotMapValue.Interface()
 			if !reflect.DeepEqual(gotIface, wantIface) {
 				err = fmt.Sprintf(
-					"key %+v: got value: (%T) %+v, want value: (%T) %+v",
+					"key %#v: got value: (%T) %#v, want value: (%T) %#v",
 					wantKey.Interface(),
 					gotIface,
 					gotIface,
@@ -294,7 +300,7 @@ func MapEqual(t testing.TB, got, want interface{}) bool {
 			}
 		} else {
 			err = fmt.Sprintf(
-				"missing key %+v: wanted value: (%T) %+v",
+				"missing key %#v: wanted value: (%T) %#v",
 				wantKey.Interface(),
 				wantIface,
 				wantIface)
@@ -309,7 +315,7 @@ func MapEqual(t testing.TB, got, want interface{}) bool {
 		if !wantMapValue.IsValid() {
 			gotIface := gotValue.MapIndex(gotKey).Interface()
 			err := fmt.Sprintf(
-				"extra key %+v: unwanted value: (%T) %+v",
+				"extra key %#v: unwanted value: (%T) %#v",
 				gotKey.Interface(),
 				gotIface,
 				gotIface)
@@ -325,21 +331,72 @@ func MapEqual(t testing.TB, got, want interface{}) bool {
 	return true
 }
 
+// DeepEqual asserts `reflect.DeepEqual(got, want)`.
 func DeepEqual(t testing.TB, got, want interface{}) bool {
 	if isArrayLike(got) && isArrayLike(want) {
 		return ArrayEqual(t, got, want)
 	} else if isMap(got) && isMap(want) {
 		return MapEqual(t, got, want)
 	} else if !reflect.DeepEqual(got, want) {
-		Tracing(t).Errorf("got: (%T) %+v, want (%T) %+v", got, got, want, want)
+		Tracing(t).Errorf("got: (%T) %#v, want (%T) %#v", got, got, want, want)
 		return false
 	}
 	return true
 }
 
+// NotDeepEqual asserts `!reflect.DeepEqual(got, want)`.
 func NotDeepEqual(t testing.TB, got, want interface{}) bool {
 	if reflect.DeepEqual(got, want) {
-		Tracing(t).Errorf("got: (%T) %+v, want != (%T) %+v", got, got, want, want)
+		Tracing(t).Errorf("got: (%T) %#v, want != (%T) %#v", got, got, want, want)
+		return false
+	}
+	return true
+}
+
+func sameInstance(got, want interface{}) bool {
+	gotType := reflect.TypeOf(got)
+	if gotType != reflect.TypeOf(want) {
+		return false
+	}
+	switch gotType.Kind() {
+	case reflect.Array,
+		reflect.Chan,
+		reflect.Func,
+		reflect.Interface,
+		reflect.Map,
+		reflect.Ptr,
+		reflect.Slice:
+
+		samePtr := reflect.ValueOf(got).Pointer() == reflect.ValueOf(want).Pointer()
+		if !samePtr {
+			return false
+		}
+		// slices of different lengths can still share a pointer
+		if gotType.Kind() == reflect.Slice && reflect.ValueOf(got).Len() != reflect.ValueOf(want).Len() {
+			return false
+		}
+		return true
+
+	default:
+		panic(fmt.Sprintf("cannot determine instance equality for non-pointer type: %T", got))
+	}
+}
+
+// SameInstance asserts that `got` and `want` are the same instance of a
+// pointer type, or are the same value of a literal type.
+func SameInstance(t testing.TB, got, want interface{}) bool {
+	if !sameInstance(got, want) {
+		Tracing(t).Errorf("got: (%T) %#v, want same instance as (%T) %#v", got, got, want, want)
+		return false
+	}
+	return true
+}
+
+// NotSameInstance asserts that `got` and `want` are not the same instance of a
+// pointer type, and are not the same value of a literal type.
+func NotSameInstance(t testing.TB, got, want interface{}) bool {
+	if sameInstance(got, want) {
+		Tracing(t).Errorf("got: (%T) %#v, want not same instance as (%T) %#v", got, got, want, want)
 		return false
 	}
 	return true
@@ -348,21 +405,23 @@ func NotDeepEqual(t testing.TB, got, want interface{}) bool {
 func encodeJson(t testing.TB, got, want interface{}) (string, string) {
 	gotJson, err := json.Marshal(got)
 	if err != nil {
-		t.Fatalf("could not marshal json: %+v", err)
+		t.Fatalf("could not marshal json: %#v", err)
 	}
 	wantJson, err := json.Marshal(want)
 	if err != nil {
-		t.Fatalf("could not marshal json: %+v", err)
+		t.Fatalf("could not marshal json: %#v", err)
 	}
 	return string(gotJson), string(wantJson)
 }
 
+// EqualJson asserts that `got` and `want` encode to the same JSON value.
 func EqualJson(t testing.TB, got, want interface{}) bool {
 	tr := Tracing(t)
 	gotJson, wantJson := encodeJson(tr, got, want)
 	return Equal(tr, gotJson, wantJson)
 }
 
+// NotEqualJson asserts that `got` and `want` do not encode to the same JSON value.
 func NotEqualJson(t testing.TB, got, want interface{}) bool {
 	tr := Tracing(t)
 	gotJson, wantJson := encodeJson(tr, got, want)
@@ -372,12 +431,13 @@ func NotEqualJson(t testing.TB, got, want interface{}) bool {
 func matchRegex(t testing.TB, got, wantRegex string) bool {
 	matched, err := regexp.MatchString(wantRegex, got)
 	if err != nil {
-		t.Fatalf("invalid regular expression `%s`: %+v", wantRegex, err)
+		t.Fatalf("invalid regular expression `%s`: %#v", wantRegex, err)
 	}
 
 	return matched
 }
 
+// MatchesRegex asserts that `got` matches the provided regular expression.
 func MatchesRegex(t testing.TB, got, wantRegex string) bool {
 	tr := Tracing(t)
 	if !matchRegex(tr, got, wantRegex) {
@@ -388,6 +448,7 @@ func MatchesRegex(t testing.TB, got, wantRegex string) bool {
 	return true
 }
 
+// DoesNotMatchRegex asserts that `got` does not match the provided regular expression.
 func DoesNotMatchRegex(t testing.TB, got, wantRegex string) bool {
 	tr := Tracing(t)
 	if matchRegex(tr, got, wantRegex) {
@@ -398,19 +459,22 @@ func DoesNotMatchRegex(t testing.TB, got, wantRegex string) bool {
 	return true
 }
 
+// True asserts that `value` is true.
 func True(t testing.TB, value bool) bool {
 	return Equal(Tracing(t), value, true)
 }
 
+// True asserts that `value` is false.
 func False(t testing.TB, value bool) bool {
 	return Equal(Tracing(t), value, false)
 }
 
-func Failed(t testing.TB, msg string) bool {
+// Failed logs `msg` and fails the current test.
+func Failed(t testing.TB, msg string) {
 	Tracing(t).Errorf("Failed: %s", msg)
-	return false
 }
 
+// ErrorContains asserts that `got` contains `want`.
 func ErrorContains(t testing.TB, got error, want string) bool {
 	tr := Tracing(t)
 	if got == nil {
@@ -424,6 +488,7 @@ func ErrorContains(t testing.TB, got error, want string) bool {
 	return true
 }
 
+// ErrorDoesNotContain asserts that `got` does not contain `want`.
 func ErrorDoesNotContain(t testing.TB, got error, want string) bool {
 	tr := Tracing(t)
 	if got == nil {
@@ -522,21 +587,21 @@ func assertSameArray(gotValue, wantValue []reflect.Value) string {
 	if gotLen != wantLen || len(extra) > 0 || len(missing) > 0 {
 		missingStr := ""
 		if len(missing) > 0 {
-			missingStr = fmt.Sprintf("; missing elements: %+v", missing)
+			missingStr = fmt.Sprintf("; missing elements: %#v", missing)
 		}
 
 		extraStr := ""
 		if len(extra) > 0 {
-			extraStr = fmt.Sprintf("; extra elements: %+v", extra)
+			extraStr = fmt.Sprintf("; extra elements: %#v", extra)
 		}
 
 		gotValueStr := []string{}
 		for _, gv := range gotValue {
-			gotValueStr = append(gotValueStr, fmt.Sprintf("<%s> %+v", gv.Type().Name(), gv))
+			gotValueStr = append(gotValueStr, fmt.Sprintf("<%s> %#v", gv.Type().Name(), gv))
 		}
 		wantValueStr := []string{}
 		for _, wv := range wantValue {
-			wantValueStr = append(wantValueStr, fmt.Sprintf("<%s> %+v", wv.Type().Name(), wv))
+			wantValueStr = append(wantValueStr, fmt.Sprintf("<%s> %#v", wv.Type().Name(), wv))
 		}
 
 		return fmt.Sprintf(

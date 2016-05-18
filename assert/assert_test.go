@@ -139,14 +139,18 @@ var (
 	cs3  = complexStruct{1, &string1a}
 	cs4  = complexStruct{1, &string2}
 
-	slice1a = []string{"a", "b", "c"}
-	slice1b = []string{"a", "b", "c"}
-	slice2  = []string{"X", "Y", "Z"}
+	slice1a     = []string{"a", "b", "c"}
+	slice1b     = []string{"a", "b", "c"}
+	slice2      = []string{"X", "Y", "Z"}
+	slice2trunc = slice2[0:2]
 
 	map1    = map[string]interface{}{"a": "b", "c": map[string]string{"d": "e"}}
 	struct1 = moreComplexStruct{A: "b", C: lessComplexSubstruct{D: "e"}}
 	map2    = map[string]interface{}{"a": "b", "c": map[string]string{"d": "z"}}
 	struct2 = moreComplexStruct{A: "b", C: lessComplexSubstruct{D: "z"}}
+
+	iface1 interface{} = new(interface{})
+	iface2 interface{} = new(interface{})
 
 	nilnessTestCases = []nilTestCase{
 		{"nil", nil, nilish},
@@ -163,21 +167,24 @@ var (
 		{"func-notnilish", function, notNilish},
 	}
 
-	equalityTestCasesJsonOk = []equalTestCase{
+	valueEqualityTestCasesJsonOk = []equalTestCase{
 		{"string-1a-1b", string1a, string1b, equalAndDeepEqual},
 		{"string-1a-2", string1a, string2, notEqual},
+		{"int-1a-1b", int1a, int1b, equalAndDeepEqual},
+		{"int-1a-2", int1a, int2, notEqual},
+		{"struct-1a-1b", cs1a, cs1b, equalAndDeepEqual},
+		{"struct-2a-2b", cs2a, cs2b, justDeepEqual},
+		{"struct-3-4", cs3, cs4, justJsonEqual},
+	}
+
+	pointerEqualityTestCasesJsonOk = []equalTestCase{
 		{"*string-nil-nil", nilStringPtr, nilStringPtr, equalAndDeepEqual},
 		{"*string-1a-1b", &string1a, &string1b, justDeepEqual},
 		{"*string-1a-2", &string1a, &string2, notEqual},
 		{"string & *-1a-1b", string1a, &string1b, justJsonEqual},
 		{"string & *-1a-1b", &string1a, string1b, justJsonEqual},
-		{"int-1a-1b", int1a, int1b, equalAndDeepEqual},
-		{"int-1a-2", int1a, int2, notEqual},
 		{"*int-1a-1b", &int1a, &int1b, justDeepEqual},
 		{"*int-1a-2", &int1a, &int2, notEqual},
-		{"struct-1a-1b", cs1a, cs1b, equalAndDeepEqual},
-		{"struct-2a-2b", cs2a, cs2b, justDeepEqual},
-		{"struct-3-4", cs3, cs4, justJsonEqual},
 		{"*struct-1a-1b", &cs1a, &cs1b, justDeepEqual},
 		{"*struct-2a-2b", &cs2a, &cs2b, justDeepEqual},
 		{"*struct-3-4", &cs3, &cs4, justJsonEqual},
@@ -185,22 +192,32 @@ var (
 		{"*[]string-1a-2", &slice1a, &slice2, notEqual},
 	}
 
+	equalityTestCasesNoJson = []equalTestCase{
+		// these types cannot be json marshalled
+		{"chan", channel, channel, equalAndDeepEqual},
+	}
+
+	equalityTestCasesJsonOk = append(
+		valueEqualityTestCasesJsonOk,
+		pointerEqualityTestCasesJsonOk...,
+	)
+
 	equalityTestCases = append(
 		equalityTestCasesJsonOk,
-		// these types cannot be json marshalled
-		equalTestCase{"chan", channel, channel, equalAndDeepEqual},
+		equalityTestCasesNoJson...,
 	)
 
 	// these types cannot be compared with == (runtime panic)
 	deepEqualityTestCasesJsonOk = []equalTestCase{
 		{"[]string-1a-1b", slice1a, slice1b, justDeepEqual},
 		{"[]string-1a-2", slice1a, slice2, notEqual},
+		{"[]string-2-2trunc", slice2, slice2trunc, notEqual},
 	}
 
 	deepEqualityTestCases = append(
 		deepEqualityTestCasesJsonOk,
 		// these types cannot be json marshalled
-		equalTestCase{"func", function, function, notEqual},
+		equalTestCase{"func", function, function, justEqual},
 	)
 
 	justJsonEqualTestCases = []equalTestCase{
@@ -210,6 +227,20 @@ var (
 		{"struct1-cs3", struct1, cs3, notEqual},
 		{"struct1-struct2", struct1, struct2, notEqual},
 	}
+
+	sameInstanceTestCases = append(
+		pointerEqualityTestCasesJsonOk,
+		append(
+			deepEqualityTestCases,
+			[]equalTestCase{
+				{"map1a-struct", map1, struct1, justJsonEqual},
+				{"map1a-map2", map1, map2, notEqual},
+				{"map2-struct", map2, struct1, notEqual},
+				{"iface1-iface1", iface1, iface1, justEqual},
+				{"iface1-iface2", iface1, iface2, notEqual},
+			}...,
+		)...,
+	)
 )
 
 func TestTracing(t *testing.T) {
@@ -364,6 +395,28 @@ func TestNotDeepEqual(t *testing.T) {
 			NotDeepEqual,
 			func(test equalTestCase) bool {
 				return test.kind == notEqual || test.kind == justEqual || test.kind == justJsonEqual
+			})
+	}
+}
+
+func TestSameInstance(t *testing.T) {
+	for _, test := range sameInstanceTestCases {
+		test.run(
+			t,
+			SameInstance,
+			func(test equalTestCase) bool {
+				return test.kind == justEqual || test.kind == equalAndDeepEqual
+			})
+	}
+}
+
+func TestNotSameInstance(t *testing.T) {
+	for _, test := range sameInstanceTestCases {
+		test.run(
+			t,
+			NotSameInstance,
+			func(test equalTestCase) bool {
+				return test.kind == notEqual || test.kind == justDeepEqual || test.kind == justJsonEqual
 			})
 	}
 }
