@@ -98,10 +98,10 @@ func (t *mockT) record(op string, args string) {
 	}
 }
 
-// For any `testing.TB` method invoked on `mockT`, you'll need to
-// override the version inherited from embedding a `testing.TB` in
-// `mockT`. (The embedded versions of the methods will fail due to the
-// `TB` field being nil.)
+// For any testing.TB method invoked on mockT, you'll need to
+// override the version inherited from embedding a testing.TB in
+// mockT. (The embedded versions of the methods will fail due to the
+// TB field being nil.)
 func (t *mockT) Errorf(format string, args ...interface{}) {
 	t.record("Errorf", fmt.Sprintf(format, args...))
 }

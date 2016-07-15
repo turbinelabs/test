@@ -1,6 +1,6 @@
 package tempfile
 
-// Package tempfile provides wrappers around `ioutil.TempFile` to
+// Package tempfile provides wrappers around ioutil.TempFile to
 // easily create temporary files or file names.
 
 import (
@@ -15,7 +15,7 @@ const defaultPermissions = 0666
 // Generates an empty temporary file and returns its name and a
 // cleanup function that removes the file. The prefix is optional and
 // may be used to control the name of the temporary file. Typically,
-// the cleanup function is passed to `defer`. Failure to create the
+// the cleanup function is passed to defer. Failure to create the
 // file causes a fatal error via the testing context.
 func Make(t *testing.T, prefix ...string) (string, func()) {
 	p := "test-tmp."
@@ -37,7 +37,7 @@ func Make(t *testing.T, prefix ...string) (string, func()) {
 	return name, func() { os.Remove(name) }
 }
 
-// Writes the given data to a newly create temporary file. Uses `Make`
+// Writes the given data to a newly create temporary file. Uses Make
 // to create the file.
 func Write(t *testing.T, data string, prefix ...string) (string, func()) {
 	filename, cleanup := Make(t, prefix...)

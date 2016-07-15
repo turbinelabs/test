@@ -31,6 +31,6 @@
 
   Currently only a single parser exists. It parses go-style test
   verbose output. It modifies test command line arguments to include
-  the verbose flag (`-test.v=true`).
+  the verbose flag ("-test.v=true").
 */
 package main

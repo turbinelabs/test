@@ -1,4 +1,4 @@
-// Package parser provides a test output parser for `go test`.
+// Package parser provides a test output parser for go test.
 package parser
 
 import (
