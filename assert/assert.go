@@ -148,7 +148,7 @@ func NonNil(t testing.TB, got interface{}) bool {
 // be compared with ==.
 func Equal(t testing.TB, got, want interface{}) bool {
 	if got != want {
-		Tracing(t).Errorf("got: (%T) %#v, want (%T) %#v", got, got, want, want)
+		Tracing(t).Errorf("got: (%T) %+v, want (%T) %+v", got, got, want, want)
 		return false
 	}
 	return true
