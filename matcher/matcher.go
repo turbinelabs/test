@@ -24,3 +24,16 @@ func (a AnyWriter) Matches(x interface{}) bool {
 func (a AnyWriter) String() string {
 	return fmt.Sprintf("AnyWriter(%q)", a.Data)
 }
+
+type PredicateMatcher struct {
+	Test func(interface{}) bool
+	Name string
+}
+
+func (em PredicateMatcher) Matches(x interface{}) bool {
+	return em.Test(x)
+}
+
+func (em PredicateMatcher) String() string {
+	return fmt.Sprintf("PredicateMatcher(%s)", em.Name)
+}
