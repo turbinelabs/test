@@ -2,6 +2,7 @@ package matcher
 
 import (
 	"bytes"
+	"reflect"
 	"testing"
 
 	"github.com/turbinelabs/test/assert"
@@ -36,4 +37,11 @@ func TestPredicateMatcher(t *testing.T) {
 
 	assert.True(t, eqm.Matches("matched!"))
 	assert.Equal(t, eqm.String(), "PredicateMatcher(string value tester)")
+}
+
+func TestIsOfTypeMatcher(t *testing.T) {
+	iot := IsOfType{reflect.TypeOf(teststruct{})}
+	assert.False(t, iot.Matches("nope"))
+	assert.True(t, iot.Matches(teststruct{1234, "ok"}))
+	assert.Equal(t, iot.String(), "IsOfType(matcher.teststruct)")
 }

@@ -2,6 +2,7 @@ package matcher
 
 import (
 	"fmt"
+	"reflect"
 )
 
 func CaptureAny() *ValueCaptor {
@@ -12,13 +13,16 @@ func CaptureMatching(m Matcher) *ValueCaptor {
 	return &ValueCaptor{m, nil}
 }
 
-// TODO: write CaptureType(interface{}) that will capture anything matching the
-// the provided type. Construct a matcher.IsTypeOf and use that.
+func CaptureType(t reflect.Type) *ValueCaptor {
+	return &ValueCaptor{IsOfType{t}, nil}
+}
 
 type ValueCaptor struct {
 	mustMatch Matcher
 	V         interface{}
 }
+
+var _ Matcher = &ValueCaptor{}
 
 func (vc *ValueCaptor) Matches(x interface{}) bool {
 	if vc.mustMatch != nil && !vc.mustMatch.Matches(x) {
@@ -31,11 +35,4 @@ func (vc *ValueCaptor) Matches(x interface{}) bool {
 
 func (vc *ValueCaptor) String() string {
 	return fmt.Sprintf("valueCaptor(mustMatch: %s)", vc.mustMatch)
-}
-
-// Matcher duplicates gomock.Matcher interface. It is not referenced directly so
-// as to not create a dependency between the test parent package and gomock.
-type Matcher interface {
-	Matches(interface{}) bool
-	String() string
 }

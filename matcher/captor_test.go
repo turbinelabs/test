@@ -1,7 +1,10 @@
 package matcher
 
 import (
+	"reflect"
 	"testing"
+
+	"github.com/turbinelabs/test/assert"
 )
 
 type teststruct struct {
@@ -12,18 +15,11 @@ type teststruct struct {
 func TestCaptureAny(t *testing.T) {
 	cap := CaptureAny()
 	passed := 1234
-	if !cap.Matches(1234) {
-		t.Errorf("got: does not match, want: matches")
-	}
+	assert.True(t, cap.Matches(1234))
 
 	asInt, ok := cap.V.(int)
-	if !ok {
-		t.Errorf("got: %T, want: int", cap.V)
-	}
-
-	if asInt != passed {
-		t.Errorf("got: %d, want: %d", asInt, passed)
-	}
+	assert.True(t, ok)
+	assert.Equal(t, asInt, passed)
 }
 
 type maybeMatcher struct {
@@ -42,28 +38,30 @@ func TestCaptureMatching(t *testing.T) {
 	want := teststruct{1234, "aoeu"}
 	cap := CaptureMatching(maybeMatcher{true})
 
-	if !cap.Matches(want) {
-		t.Errorf("got: does not match, want: matches")
-	}
+	assert.True(t, cap.Matches(want))
 
 	asTs, ok := cap.V.(teststruct)
-	if !ok {
-		t.Errorf("got: %T, want: teststruct", cap.V)
-	}
-
-	if asTs != want {
-		t.Errorf("got: %#v, want: %#v\n", cap.V, want)
-	}
+	assert.True(t, ok)
+	assert.Equal(t, asTs, want)
 }
 
 func TestCaptureMatchingDidNotMatch(t *testing.T) {
 	doNotWant := teststruct{1234, "aoeu"}
 	cap := CaptureMatching(maybeMatcher{false})
 
-	if cap.Matches(doNotWant) {
-		t.Errorf("got: matches, want: no match")
-	}
-	if cap.V != nil {
-		t.Errorf("got: %#v, want: nil\n", cap.V)
-	}
+	assert.False(t, cap.Matches(doNotWant))
+	assert.Nil(t, cap.V)
+}
+
+func TestCaptureType(t *testing.T) {
+	rightType := teststruct{1234, "whee"}
+	wrongType := struct{ x string }{x: "nope"}
+
+	cap := CaptureType(reflect.TypeOf(teststruct{}))
+	assert.True(t, cap.Matches(rightType))
+	assert.DeepEqual(t, cap.V, rightType)
+
+	cap = CaptureType(reflect.TypeOf(teststruct{}))
+	assert.False(t, cap.Matches(wrongType))
+	assert.Nil(t, cap.V)
 }
