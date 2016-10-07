@@ -17,7 +17,7 @@ const defaultPermissions = 0666
 // may be used to control the name of the temporary file. Typically,
 // the cleanup function is passed to defer. Failure to create the
 // file causes a fatal error via the testing context.
-func Make(t *testing.T, prefix ...string) (string, func()) {
+func Make(t testing.TB, prefix ...string) (string, func()) {
 	p := "test-tmp."
 	if len(prefix) > 0 {
 		p = strings.Join(prefix, "-")
@@ -39,7 +39,7 @@ func Make(t *testing.T, prefix ...string) (string, func()) {
 
 // Writes the given data to a newly create temporary file. Uses Make
 // to create the file.
-func Write(t *testing.T, data string, prefix ...string) (string, func()) {
+func Write(t testing.TB, data string, prefix ...string) (string, func()) {
 	filename, cleanup := Make(t, prefix...)
 	err := ioutil.WriteFile(filename, []byte(data), defaultPermissions)
 	if err != nil {
@@ -50,7 +50,7 @@ func Write(t *testing.T, data string, prefix ...string) (string, func()) {
 }
 
 // Appends the given data to a previously created file.
-func Append(t *testing.T, file, data string) error {
+func Append(t testing.TB, file, data string) error {
 	f, err := os.OpenFile(file, os.O_WRONLY|os.O_APPEND, defaultPermissions)
 	if err != nil {
 		t.Fatalf("failed to append to temp file '%s' for test: %v", file, err)
