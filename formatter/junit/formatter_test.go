@@ -79,7 +79,7 @@ var (
 			Name:     "github.com/turbinelabs/tbn/something",
 			Result:   results.Passed,
 			Duration: 1.234,
-			Output:   "the output",
+			Output:   "the output, sanitized: \x00",
 		},
 	}
 )
@@ -192,7 +192,7 @@ func TestGenerateReportSuiteOutput(t *testing.T) {
 
 	suite := suites.Suites[0]
 	assert.NonNil(t, suite.Output)
-	assert.Equal(t, suite.Output.Contents, "the output")
+	assert.Equal(t, suite.Output.Contents, `the output, sanitized: \x00`)
 }
 
 func TestWriteReportSuccess(t *testing.T) {
@@ -243,4 +243,30 @@ func TestWriteReportSkipped(t *testing.T) {
 	assert.MatchesRegex(t, s, `<testcase .*name="TestFoo".*></testcase>`)
 	assert.MatchesRegex(t, s, `<testcase .*name="TestBar".*>`)
 	assert.MatchesRegex(t, s, `<skipped><!\[CDATA\[skipped it\]\]></skipped>`)
+}
+
+func TestSanitize(t *testing.T) {
+	testcases := [][]string{
+		{"abc is ok by me", "abc is ok by me"},
+		{`\ is safe`, `\ is safe`},
+		{"123\t\r\n", "123\t\r\n"},               // CR, LF, and TAB are ok
+		{"nope \ufdd0 nope", `nope \ufdd0 nope`}, // private use characters are not allowed
+		{"null \x00 null", `null \x00 null`},     // null is not allowed
+		{"esc \x1b esc", `esc \x1b esc`},         // escape is not allowed
+		{"\x1f", `\x1f`},                         // whatever this is: not allowed
+		{"del \x7f del", `del \x7f del`},         // delete is not allowed
+		{"\x80", `\x80`},                         // bare continuation byte
+		{"\xbf", `\xbf`},                         // bare continuation byte
+		{"\x80\xbf", `\x80\xbf`},                 // pair of bare continuation bytes
+		{"\xc0 ", `\xc0 `},                       // missing continuation byte
+		{"\xf0\x80\x80 ", `\xf0\x80\x80 `},       // missing last continuation byte
+		{"\U0001FFFF", `\U0001ffff`},             // non-characters
+	}
+
+	for _, testcase := range testcases {
+		input := testcase[0]
+		expected := testcase[1]
+
+		assert.Equal(t, sanitize(input), expected)
+	}
 }

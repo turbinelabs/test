@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/turbinelabs/test/testrunner/results"
 )
@@ -66,6 +67,40 @@ func WriteReport(out io.Writer, pkgs []*results.TestPackage) {
 	out.Write([]byte{'\n'})
 }
 
+// Escapes strings containing characters disallowed in XML (even in
+// CDATA sections). The escaping is lossy and is meant only to prevent
+// XML parsers from failing to decode the document.
+func sanitize(s string) string {
+	buf := make([]byte, 0, len(s))
+	for width := 0; len(s) > 0; s = s[width:] {
+		r := rune(s[0])
+		width = 1
+		if r >= utf8.RuneSelf {
+			r, width = utf8.DecodeRuneInString(s)
+		}
+		if width == 1 && r == utf8.RuneError {
+			// invalid UTF-8 encoding
+			buf = append(buf, fmt.Sprintf(`\x%02x`, s[0])...)
+			continue
+		}
+
+		// c.f. https://www.w3.org/TR/REC-xml/#charsets
+		switch {
+		case r == '\t' || r == '\r' || r == '\n':
+			buf = append(buf, s[0])
+		case r < ' ' || (r >= 0x7f && r <= 0x9f):
+			buf = append(buf, fmt.Sprintf(`\x%02x`, s[0])...)
+		case r >= 0xfdd0 && r <= 0xfdef:
+			buf = append(buf, fmt.Sprintf(`\u%04x`, uint16(r))...)
+		case r > utf8.MaxRune || r&0xFFFE == 0xFFFE:
+			buf = append(buf, fmt.Sprintf(`\U%08x`, uint32(r))...)
+		default:
+			buf = append(buf, s[0:width]...)
+		}
+	}
+	return string(buf)
+}
+
 func GenerateReport(pkgs []*results.TestPackage) JunitTestSuites {
 	suites := make([]JunitTestSuite, len(pkgs))
 
@@ -79,7 +114,7 @@ func GenerateReport(pkgs []*results.TestPackage) JunitTestSuites {
 		}
 
 		if pkg.Output != "" {
-			suite.Output = &JunitOutput{pkg.Output}
+			suite.Output = &JunitOutput{sanitize(pkg.Output)}
 		}
 
 		classname := pkg.Name
@@ -91,7 +126,7 @@ func GenerateReport(pkgs []*results.TestPackage) JunitTestSuites {
 			output := test.Output.String()
 			var testCaseOutput *JunitOutput
 			if output != "" {
-				testCaseOutput = &JunitOutput{output}
+				testCaseOutput = &JunitOutput{sanitize(output)}
 			}
 
 			testCase := JunitTestCase{

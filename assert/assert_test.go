@@ -3,6 +3,8 @@ package assert
 import (
 	"fmt"
 	"reflect"
+	"strings"
+	"sync"
 	"testing"
 )
 
@@ -98,12 +100,43 @@ func (t *mockT) record(op string, args string) {
 	}
 }
 
+func (t *mockT) reset() {
+	t.log = nil
+}
+
+func (t *mockT) checkErrorPrefix(realT testing.TB, prefix string) {
+	if len(t.log) != 1 {
+		realT.Errorf("expected single error, got '%+v'", t.log)
+	}
+
+	switch t.log[0].op {
+	case "Error", "Errorf":
+		if !strings.HasPrefix(t.log[0].args, prefix) {
+			realT.Errorf("got %q, expected prefix %q", t.log[0].args, prefix)
+		}
+	default:
+		realT.Errorf("expected Error or Error op, got '%+v'", t.log[0])
+	}
+}
+
 // For any testing.TB method invoked on mockT, you'll need to
 // override the version inherited from embedding a testing.TB in
 // mockT. (The embedded versions of the methods will fail due to the
 // TB field being nil.)
 func (t *mockT) Errorf(format string, args ...interface{}) {
 	t.record("Errorf", fmt.Sprintf(format, args...))
+}
+
+func (t *mockT) Error(args ...interface{}) {
+	t.record("Error", strings.TrimRight(fmt.Sprintln(args...), "\n"))
+}
+
+func (t *mockT) Fatalf(format string, args ...interface{}) {
+	t.record("Fatalf", fmt.Sprintf(format, args...))
+}
+
+func (t *mockT) Fatal(args ...interface{}) {
+	t.record("Fatal", strings.TrimRight(fmt.Sprintln(args...), "\n"))
 }
 
 type moreComplexStruct struct {
@@ -366,9 +399,11 @@ func TestMapEqual(t *testing.T) {
 	m1 := map[string]int{"a": 1}
 	m2 := map[string]int{"a": 1, "b": 2, "c": 3}
 	m3 := map[string]int{"a": 1, "b": 2, "c": 3}
+	m4 := map[string]int{"a": 99, "b": 2, "c": 3}
+	m5 := map[string]int{"a": 1, "b": 2}
 
 	tr := Tracing(t)
-	mockT := &testing.T{}
+	mockT := &mockT{}
 
 	if MapEqual(mockT, m1, "a") || MapEqual(mockT, "a", m1) {
 		tr.Errorf("expected MapEqual to fail on non-arrays")
@@ -385,6 +420,33 @@ func TestMapEqual(t *testing.T) {
 	if !MapEqual(mockT, m2, m3) {
 		tr.Errorf("expected '%+v' to equal '%+v'", m2, m3)
 	}
+
+	mockT.reset()
+	if MapEqual(mockT, m3, m4) {
+		tr.Errorf("expected '%+v' not to equal '%+v'", m3, m4)
+	}
+	mockT.checkErrorPrefix(
+		tr,
+		"maps not equal:\nkey `a`: got (int) 1, want (int) 99 in ",
+	)
+
+	mockT.reset()
+	if MapEqual(mockT, m1, m5) {
+		tr.Errorf("expected '%+v' not to equal '%+v'", m1, m5)
+	}
+	mockT.checkErrorPrefix(
+		tr,
+		"maps not equal:\nmissing key `b`: wanted value: (int) 2 in ",
+	)
+
+	mockT.reset()
+	if MapEqual(mockT, m5, m1) {
+		tr.Errorf("expected '%+v' not to equal '%+v'", m5, m1)
+	}
+	mockT.checkErrorPrefix(
+		tr,
+		"maps not equal:\nextra key `b`: unwanted value: (int) 2 in ",
+	)
 }
 
 func TestNotDeepEqual(t *testing.T) {
@@ -653,6 +715,58 @@ func TestHasSameElementsInternals(t *testing.T) {
 	}
 }
 
+func TestSameInstanceNonPointers(t *testing.T) {
+	wg := &sync.WaitGroup{}
+	wg.Add(2)
+
+	tr := Tracing(t)
+
+	expectedPrefix := "cannot determine instance equality for non-pointer type:"
+
+	rescued := func(a interface{}) {
+		defer wg.Done()
+		defer func() {
+			if p := recover(); p != nil {
+				if s, ok := p.(string); ok {
+					if !strings.HasPrefix(s, expectedPrefix) {
+						tr.Errorf("wrong panic message, got %q", s)
+					}
+				} else {
+					tr.Errorf("expected panic string, got '%+v'", p)
+				}
+			} else {
+				tr.Errorf("expected panic comparing '%+v' to itself", a)
+			}
+		}()
+
+		sameInstance(a, a)
+	}
+
+	go rescued("a")
+}
+
+func TestEqualWithNonPrintableStings(t *testing.T) {
+	tr := Tracing(t)
+	mockT := &mockT{}
+
+	a := "xyz"
+	b := "xyz\x00"
+
+	if Equal(mockT, a, b) {
+		tr.Errorf("expected null-terminated inequality")
+	}
+
+	if len(mockT.log) != 1 {
+		tr.Errorf("expected a single log entry, got: %+v", mockT.log)
+	}
+
+	log := mockT.log[0]
+	expectedPrefix := "got (string) `xyz`, want (string) \"xyz\\x00\" in "
+	if !strings.HasPrefix(log.args, expectedPrefix) {
+		tr.Errorf("got %q, expected prefix %q", log.args, expectedPrefix)
+	}
+}
+
 func TestGroupPassing(t *testing.T) {
 	tr := Tracing(t)
 	mockT := &mockT{}
@@ -680,12 +794,12 @@ func TestGroupFailing(t *testing.T) {
 		})
 	})
 
-	if len(mockT.log) != 1 || mockT.log[0].op != "Errorf" {
-		tr.Errorf("got %+v, want single Errorf op", mockT.log)
+	if len(mockT.log) != 1 || mockT.log[0].op != "Error" {
+		tr.Errorf("got %+v, want single Error op", mockT.log)
 	}
 
 	expectedPrefix := "name: "
-	if mockT.log[0].args[0:len(expectedPrefix)] != expectedPrefix {
+	if !strings.HasPrefix(mockT.log[0].args, expectedPrefix) {
 		tr.Errorf("got '%s', want prefix '%s'", mockT.log[0].args, expectedPrefix)
 	}
 }
@@ -701,13 +815,62 @@ func TestNestedGroupFailing(t *testing.T) {
 		})
 	})
 
+	if len(mockT.log) != 1 || mockT.log[0].op != "Error" {
+		tr.Errorf("got %+v, want single Error op", mockT.log)
+	}
+
+	expectedPrefix := "main-group sub-group: "
+	if !strings.HasPrefix(mockT.log[0].args, expectedPrefix) {
+		tr.Errorf("got '%s', want prefix '%s'", mockT.log[0].args, expectedPrefix)
+	}
+}
+
+func TestGroupErrof(t *testing.T) {
+	tr := Tracing(t)
+	mockT := &mockT{}
+
+	Group("main-group", mockT, func(g *G) {
+		g.Errorf("failed %s", "here")
+	})
+
 	if len(mockT.log) != 1 || mockT.log[0].op != "Errorf" {
 		tr.Errorf("got %+v, want single Errorf op", mockT.log)
 	}
 
-	expectedPrefix := "main-group sub-group: "
-	if mockT.log[0].args[0:len(expectedPrefix)] != expectedPrefix {
+	expectedPrefix := "main-group: failed here in "
+	if !strings.HasPrefix(mockT.log[0].args, expectedPrefix) {
 		tr.Errorf("got '%s', want prefix '%s'", mockT.log[0].args, expectedPrefix)
+	}
+}
+
+func TestGroupFatal(t *testing.T) {
+	tr := Tracing(t)
+	mockT := &mockT{}
+
+	Group("main-group", mockT, func(g *G) {
+		g.Fatal("boom")
+		g.Fatalf("boom %s", "two")
+	})
+
+	if len(mockT.log) != 2 {
+		tr.Errorf("expected 2 ops, got %d", len(mockT.log))
+	}
+
+	if mockT.log[0].op != "Fatal" {
+		tr.Errorf("got %+v, want Fatal op", mockT.log[0])
+	}
+	if mockT.log[1].op != "Fatalf" {
+		tr.Errorf("got %+v, want Fatalf op", mockT.log[1])
+	}
+
+	expectedPrefix1 := "main-group: boom in "
+	if !strings.HasPrefix(mockT.log[0].args, expectedPrefix1) {
+		tr.Errorf("got '%s', want prefix '%s'", mockT.log[0].args, expectedPrefix1)
+	}
+
+	expectedPrefix2 := "main-group: boom two in "
+	if !strings.HasPrefix(mockT.log[1].args, expectedPrefix2) {
+		tr.Errorf("got '%s', want prefix '%s'", mockT.log[1].args, expectedPrefix2)
 	}
 }
 
@@ -717,12 +880,12 @@ func TestUngrouped(t *testing.T) {
 
 	True(mockT, false)
 
-	if len(mockT.log) != 1 || mockT.log[0].op != "Errorf" {
-		tr.Errorf("got %+v, want single Errorf op", mockT.log)
+	if len(mockT.log) != 1 || mockT.log[0].op != "Error" {
+		tr.Errorf("got %+v, want single Error op", mockT.log)
 	}
 
-	expectedPrefix := "got: (bool) false, want (bool) true"
-	if mockT.log[0].args[0:len(expectedPrefix)] != expectedPrefix {
+	expectedPrefix := "got (bool) false, want (bool) true"
+	if !strings.HasPrefix(mockT.log[0].args, expectedPrefix) {
 		tr.Errorf("got '%s', want prefix '%s'", mockT.log[0].args, expectedPrefix)
 	}
 }
