@@ -243,7 +243,7 @@ func isArrayLike(i interface{}) bool {
 // panics if a is not an array
 func arrayValues(a interface{}) []reflect.Value {
 	aValue := reflect.ValueOf(a)
-	if aValue.IsNil() {
+	if aValue.Kind() != reflect.Array && aValue.IsNil() {
 		return nil
 	}
 	valueArray := make([]reflect.Value, aValue.Len())
@@ -426,8 +426,7 @@ func sameInstance(got, want interface{}) bool {
 		return false
 	}
 	switch gotType.Kind() {
-	case reflect.Array,
-		reflect.Chan,
+	case reflect.Chan,
 		reflect.Func,
 		reflect.Interface,
 		reflect.Map,
@@ -749,5 +748,38 @@ func HasSameElements(t testing.TB, got, want interface{}) bool {
 		return false
 	}
 
+	return true
+}
+
+// v must be a zero-arg function
+func checkPanic(v reflect.Value) (i interface{}) {
+	defer func() {
+		if x := recover(); x != nil {
+			i = x
+		}
+	}()
+
+	v.Call(nil)
+	return
+}
+
+// Panic asserts that the given function panics. The f parameter must
+// be a function that takes no arguments. It may, however, return any
+// number of arguments.
+func Panic(t testing.TB, f interface{}) bool {
+	fType := reflect.TypeOf(f)
+	if fType.Kind() != reflect.Func {
+		Tracing(t).Errorf("parameter to Panic must be a function: %+v", f)
+		return false
+	}
+	if fType.NumIn() != 0 {
+		Tracing(t).Errorf("function passed to Panic may not take arguments: %+v", f)
+		return false
+	}
+
+	if checkPanic(reflect.ValueOf(f)) == nil {
+		Tracing(t).Error("expected panic")
+		return false
+	}
 	return true
 }

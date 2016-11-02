@@ -43,6 +43,13 @@ func (e equalTestCase) run(
 	expectEqual func(equalTestCase) bool,
 ) {
 	tr := Tracing(t)
+
+	defer func() {
+		if p := recover(); p != nil {
+			tr.Errorf("%s: panic: %v", e.name, p)
+		}
+	}()
+
 	testT := &testing.T{}
 
 	result := f(testT, e.a, e.b)
@@ -172,6 +179,10 @@ var (
 	cs3  = complexStruct{1, &string1a}
 	cs4  = complexStruct{1, &string2}
 
+	array1a = [3]string{"a", "b", "c"}
+	array1b = [3]string{"a", "b", "c"}
+	array2  = [3]string{"X", "Y", "Z"}
+
 	slice1a     = []string{"a", "b", "c"}
 	slice1b     = []string{"a", "b", "c"}
 	slice2      = []string{"X", "Y", "Z"}
@@ -194,6 +205,7 @@ var (
 		{"*struct-1a", &cs1a, notNilish},
 		{"[]string-nilish", nilSlice, nilish},
 		{"[]string-notnilish", slice1a, notNilish},
+		{"[n]string-notnilish", array1a, notNilish},
 		{"chan-nilish", nilChannel, nilish},
 		{"chan-notnilish", channel, notNilish},
 		{"func-nilish", nilFunction, nilish},
@@ -224,6 +236,10 @@ var (
 		{"*[]string-1a-1b", &slice1a, &slice1b, justDeepEqual},
 		{"*[]string-1a-2", &slice1a, &slice2, notEqual},
 	}
+	arrayPointerEqualityTestCasesJsonOk = []equalTestCase{
+		{"*[n]string-1a-1b", &array1a, &array1b, justDeepEqual},
+		{"*[n]string-1a-2", &array1a, &array2, notEqual},
+	}
 
 	equalityTestCasesNoJson = []equalTestCase{
 		// these types cannot be json marshalled
@@ -232,7 +248,10 @@ var (
 
 	equalityTestCasesJsonOk = append(
 		valueEqualityTestCasesJsonOk,
-		pointerEqualityTestCasesJsonOk...,
+		append(
+			pointerEqualityTestCasesJsonOk,
+			arrayPointerEqualityTestCasesJsonOk...,
+		)...,
 	)
 
 	equalityTestCases = append(
@@ -240,15 +259,31 @@ var (
 		equalityTestCasesNoJson...,
 	)
 
-	// these types cannot be compared with == (runtime panic)
-	deepEqualityTestCasesJsonOk = []equalTestCase{
+	pointerDeepEqualityTestCasesJsonOk = []equalTestCase{
 		{"[]string-1a-1b", slice1a, slice1b, justDeepEqual},
 		{"[]string-1a-2", slice1a, slice2, notEqual},
 		{"[]string-2-2trunc", slice2, slice2trunc, notEqual},
 	}
 
+	arrayDeepEqualityTestCasesJsonOk = []equalTestCase{
+		{"[n]string-1a-1b", array1a, array1b, justDeepEqual},
+		{"[n]string-1a-2", array1a, array2, notEqual},
+	}
+
+	// these types cannot be compared with == (runtime panic)
+	deepEqualityTestCasesJsonOk = append(
+		pointerDeepEqualityTestCasesJsonOk,
+		arrayDeepEqualityTestCasesJsonOk...,
+	)
+
 	deepEqualityTestCases = append(
 		deepEqualityTestCasesJsonOk,
+		// these types cannot be json marshalled
+		equalTestCase{"func", function, function, justEqual},
+	)
+
+	pointerDeepEqualityTestCases = append(
+		pointerDeepEqualityTestCasesJsonOk,
 		// these types cannot be json marshalled
 		equalTestCase{"func", function, function, justEqual},
 	)
@@ -264,7 +299,7 @@ var (
 	sameInstanceTestCases = append(
 		pointerEqualityTestCasesJsonOk,
 		append(
-			deepEqualityTestCases,
+			pointerDeepEqualityTestCases,
 			[]equalTestCase{
 				{"map1a-struct", map1, struct1, justJsonEqual},
 				{"map1a-map2", map1, map2, notEqual},
@@ -355,42 +390,74 @@ func TestDeepEqual(t *testing.T) {
 }
 
 func TestArrayEqual(t *testing.T) {
-	var nilArray []string
-	emptyArray := []string{}
-	a1 := []string{"a"}
-	a2 := []string{"a", "b", "c", "d", "e"}
-	a3 := []string{"a", "b", "c", "d", "e"}
-	a4 := []string{"a", "b", "c"}
-	a5 := a3[0:3]
+	// slices
+	var nilSlice []string
+	emptySlice := []string{}
+	s1 := []string{"a"}
+	s2 := []string{"a", "b", "c", "d", "e"}
+	s3 := []string{"a", "b", "c", "d", "e"}
+	s4 := []string{"a", "b", "c"}
+	s5 := s3[0:3]
+
+	// arrays
+	emptyArray := [0]string{}
+	a1 := [3]string{"a"}
+	a2 := [3]string{"a", "b", "c"}
+	a3 := [3]string{"a", "b", "c"}
 
 	tr := Tracing(t)
 	mockT := &testing.T{}
 
-	if ArrayEqual(mockT, a1, "a") || ArrayEqual(mockT, "a", a1) {
+	if ArrayEqual(mockT, s1, "a") || ArrayEqual(mockT, "a", s1) {
 		tr.Errorf("expected ArrayEqual to fail on non-arrays")
 	}
 
-	if ArrayEqual(mockT, nilArray, a1) {
-		tr.Errorf("expected nil '%+v' not to equal '%+v'", nilArray, a1)
+	if ArrayEqual(mockT, nilSlice, s1) {
+		tr.Errorf("expected nil '%+v' not to equal '%+v'", nilSlice, s1)
 	}
-	if ArrayEqual(mockT, emptyArray, a1) {
-		tr.Errorf("expected empty '%+v' not to equal '%+v'", emptyArray, a1)
+	if ArrayEqual(mockT, emptySlice, s1) {
+		tr.Errorf("expected empty '%+v' not to equal '%+v'", emptySlice, s1)
 	}
-	if ArrayEqual(mockT, nilArray, emptyArray) {
-		tr.Errorf("expected nil '%+v' to not equal empty '%+v'", nilArray, emptyArray)
+	if ArrayEqual(mockT, nilSlice, emptySlice) {
+		tr.Errorf("expected nil '%+v' to not equal empty '%+v'", nilSlice, emptySlice)
 	}
-	if ArrayEqual(mockT, emptyArray, nilArray) {
-		tr.Errorf("expected empty '%+v' to not equal nil '%+v'", emptyArray, nilArray)
+	if ArrayEqual(mockT, emptySlice, nilSlice) {
+		tr.Errorf("expected empty '%+v' to not equal nil '%+v'", emptySlice, nilSlice)
 	}
+	if ArrayEqual(mockT, s1, s2) {
+		tr.Errorf("expected '%+v' not to equal '%+v'", s1, s2)
+	}
+	if !ArrayEqual(mockT, s2, s3) {
+		tr.Errorf("expected '%+v' to equal '%+v'", s2, s3)
+	}
+	if !ArrayEqual(mockT, s4, s5) {
+		tr.Errorf("expected '%+v' to equal '%+v'", s4, s5)
+	}
+
+	if ArrayEqual(mockT, nilSlice, emptyArray) {
+		tr.Errorf("expected nil '%+v' not to equal empty '%+v'", nilSlice, emptyArray)
+	}
+
+	if ArrayEqual(mockT, nilSlice, a1) {
+		tr.Errorf("expected nil '%+v' not to equal '%+v'", nilSlice, a1)
+	}
+
 	if ArrayEqual(mockT, a1, a2) {
 		tr.Errorf("expected '%+v' not to equal '%+v'", a1, a2)
 	}
+
 	if !ArrayEqual(mockT, a2, a3) {
 		tr.Errorf("expected '%+v' to equal '%+v'", a2, a3)
 	}
-	if !ArrayEqual(mockT, a4, a5) {
-		tr.Errorf("expected '%+v' to equal '%+v'", a4, a5)
+
+	if !ArrayEqual(mockT, s4, a2) {
+		tr.Errorf("expected '%+v' to equal '%+v'", s4, a2)
 	}
+
+	if !ArrayEqual(mockT, s5, a2) {
+		tr.Errorf("expected '%+v' to equal '%+v'", s5, a2)
+	}
+
 }
 
 func TestMapEqual(t *testing.T) {
@@ -712,6 +779,57 @@ func TestHasSameElementsInternals(t *testing.T) {
 				wantType,
 				i)
 		}
+	}
+}
+
+func TestPanic(t *testing.T) {
+	tr := Tracing(t)
+
+	ok := func() int { return 1 }
+	panicky := func() string { panic("oh noes") }
+
+	mt := &mockT{}
+	if Panic(mt, ok) {
+		tr.Errorf("expected Panic to return false")
+	}
+
+	expectedPrefix := "expected panic in "
+	if len(mt.log) != 1 || mt.log[0].op != "Error" || !strings.HasPrefix(mt.log[0].args, expectedPrefix) {
+		tr.Errorf("got %+v, want single Error op starting with %q", mt.log, expectedPrefix)
+	}
+
+	mt = &mockT{}
+	if !Panic(mt, panicky) {
+		tr.Errorf("expected Panic to return true")
+	}
+	if len(mt.log) != 0 {
+		tr.Errorf("Expected no testing.T operations, got: %v", mt.log)
+	}
+
+	mt = &mockT{}
+	if Panic(mt, "what is this even?") {
+		tr.Errorf("expected Panic to return false")
+	}
+	if len(mt.log) != 1 ||
+		mt.log[0].op != "Errorf" ||
+		!strings.Contains(mt.log[0].args, "must be a function") {
+		tr.Errorf(
+			"got %+v, wanted single Errorf op containing 'must be a function'",
+			mt.log,
+		)
+	}
+
+	mt = &mockT{}
+	if Panic(mt, func(i int) int { return i + 1 }) {
+		tr.Errorf("expected Panic to return false")
+	}
+	if len(mt.log) != 1 ||
+		mt.log[0].op != "Errorf" ||
+		!strings.Contains(mt.log[0].args, "may not take arguments") {
+		tr.Errorf(
+			"got %+v, wanted single Errorf op containing 'not not take arguments'",
+			mt.log,
+		)
 	}
 }
 
