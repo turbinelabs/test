@@ -116,20 +116,20 @@ func (s Stack) TrimPaths(pathList ...string) {
 // Example output:
 //   --- FAIL: TestClusterConstraintsEqualsSuccess (0.00s)
 //   	assert.go:60: got: (bool) true, want (bool) false in
-//   		function                            line file
-//   		TestClusterConstraintsEqualsSuccess 16   api/cluster_constraint_test.go
-//   		tRunner                             456  go/src/testing/testing.go
-//   		goexit                              1696 go/src/runtime/asm_amd64.s
+//   		function                            file:line
+//   		TestClusterConstraintsEqualsSuccess api/cluster_constraint_test.go:16
+//   		tRunner                             go/src/testing/testing.go:456
+//   		goexit                              go/src/runtime/asm_amd64.s:1696
 func (s Stack) Format(includeHeader bool) string {
 	buf := new(bytes.Buffer)
 	w := new(tabwriter.Writer)
 
 	w.Init(buf, 0, 8, 1, ' ', 0)
 	if includeHeader {
-		fmt.Fprintln(w, "function\tline\tfile")
+		fmt.Fprintln(w, "function\tfile:line")
 	}
 	for _, f := range s {
-		line := fmt.Sprintf("%s\t%d\t%s", f.function, f.line, f.filepath)
+		line := fmt.Sprintf("%s\t%s:%d", f.function, f.filepath, f.line)
 		fmt.Fprintln(w, line)
 	}
 	w.Flush()
