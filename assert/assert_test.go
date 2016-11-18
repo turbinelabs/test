@@ -643,6 +643,40 @@ func TestErrorDoesNotContain(t *testing.T) {
 	}
 }
 
+func TestStringContains(t *testing.T) {
+	tr := Tracing(t)
+	mockT := &testing.T{}
+
+	str := "this string contains: magic!"
+
+	if !StringContains(mockT, str, "magic") {
+		tr.Errorf("expected '%s' to contain 'magic'", str)
+	}
+	if StringContains(mockT, str, "special sauce") {
+		tr.Errorf("expected '%s' not to contain 'special sauce'", str)
+	}
+	if StringContains(mockT, "", "anything") {
+		tr.Errorf("expected '' not to contain 'anything'")
+	}
+}
+
+func TestStringDoesNotContain(t *testing.T) {
+	tr := Tracing(t)
+	mockT := &testing.T{}
+
+	str := "this error contains: magic!"
+
+	if StringDoesNotContain(mockT, str, "magic") {
+		tr.Errorf("expected '%s' to contain 'magic', but it did", str)
+	}
+	if !StringDoesNotContain(mockT, str, "special sauce") {
+		tr.Errorf("expected '%s' not to contain 'special sauce'", str)
+	}
+	if !StringDoesNotContain(mockT, "", "anything") {
+		tr.Errorf("expected '' not to contain 'anything'")
+	}
+}
+
 func TestHasSameElements(t *testing.T) {
 	tr := Tracing(t)
 	mockT := &testing.T{}

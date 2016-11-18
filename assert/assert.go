@@ -580,6 +580,36 @@ func ErrorDoesNotContain(t testing.TB, got error, want string) bool {
 	return true
 }
 
+// StringContains asserts that got contains want.
+func StringContains(t testing.TB, got, want string) bool {
+	tr := Tracing(t)
+	if !strings.Contains(got, want) {
+		tr.Errorf(
+			"got %s, wanted message containing %s",
+			stringify(got),
+			stringify(want),
+		)
+		return false
+	}
+
+	return true
+}
+
+// StringDoesNotContain asserts that got does not contain want.
+func StringDoesNotContain(t testing.TB, got, want string) bool {
+	tr := Tracing(t)
+	if strings.Contains(got, want) {
+		tr.Errorf(
+			"got %s, wanted message not containing %s",
+			stringify(got),
+			stringify(want),
+		)
+		return false
+	}
+
+	return true
+}
+
 func checkContainerTypes(t testing.TB, gotType, wantType reflect.Type) bool {
 	gotKind := gotType.Kind()
 	wantKind := wantType.Kind()
