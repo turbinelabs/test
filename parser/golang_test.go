@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	testPackageName = "github.com/turbinelabs/agent/sdagentctl/helper"
+	testPackageName = "foo/bar/baz"
 
 	SinglePackageVerbose = `=== RUN   TestWrapAndCallAgentNoErr
 --- PASS: TestWrapAndCallAgentNoErr (0.01s)
@@ -116,7 +116,7 @@ this is some other test output
 --- FAIL: TestPatchAgentErr (1.00s)
 	assert.go:143: got: (bool) true, want (bool) false in
 		function          line file
-		TestPatchAgentErr 220  agent/sdagentctl/helper/helper_test.go
+		TestPatchAgentErr 220  agent/differctl/helper/helper_test.go
 		tRunner           473  go/src/testing/testing.go
 		goexit            1998 go/src/runtime/asm_amd64.s
 === RUN   TestPatchDryRun
@@ -149,7 +149,7 @@ this is some other test output
 --- FAIL: TestPatchAgentErr (1.00s)
 	assert.go:143: got: (bool) true, want (bool) false in
 		function          line file
-		TestPatchAgentErr 220  agent/sdagentctl/helper/helper_test.go
+		TestPatchAgentErr 220  agent/differctl/helper/helper_test.go
 		tRunner           473  go/src/testing/testing.go
 		goexit            1998 go/src/runtime/asm_amd64.s
 === RUN   TestPatchDryRun
@@ -190,7 +190,7 @@ func testSuccess(t *testing.T, testdata string) {
 	assert.Equal(t, len(pkgs), 1)
 
 	pkg := pkgs[0]
-	assert.Equal(t, pkg.Name, "github.com/turbinelabs/agent/sdagentctl/helper")
+	assert.Equal(t, pkg.Name, "foo/bar/baz")
 	assert.Equal(t, pkg.Result, results.Passed)
 	assert.Equal(t, pkg.Duration, 0.88)
 	assert.Equal(t, len(pkg.Tests), 11)
@@ -258,7 +258,7 @@ func testFailure(t *testing.T, testdata string) {
 	assert.Equal(t, len(pkgs), 1)
 
 	pkg := pkgs[0]
-	assert.Equal(t, pkg.Name, "github.com/turbinelabs/agent/sdagentctl/helper")
+	assert.Equal(t, pkg.Name, "foo/bar/baz")
 	assert.Equal(t, pkg.Result, results.Failed)
 	assert.Equal(t, pkg.Duration, 11.0)
 	assert.Equal(t, len(pkg.Tests), 11)
@@ -301,7 +301,7 @@ func TestParseOutputOnSkippedTest(t *testing.T) {
 	assert.Equal(t, len(pkgs), 1)
 
 	pkg := pkgs[0]
-	assert.Equal(t, pkg.Name, "github.com/turbinelabs/agent/sdagentctl/helper")
+	assert.Equal(t, pkg.Name, "foo/bar/baz")
 	assert.Equal(t, pkg.Result, results.Passed)
 	assert.Equal(t, pkg.Duration, 11.0)
 	assert.Equal(t, len(pkg.Tests), 2)
@@ -321,7 +321,7 @@ func TestParseOutputOnNoTests(t *testing.T) {
 	assert.Equal(t, len(pkgs), 1)
 
 	pkg := pkgs[0]
-	assert.Equal(t, pkg.Name, "github.com/turbinelabs/agent/sdagentctl/helper")
+	assert.Equal(t, pkg.Name, "foo/bar/baz")
 	assert.Equal(t, pkg.Result, results.Passed)
 	assert.Equal(t, pkg.Duration, 11.0)
 	assert.Equal(t, len(pkg.Tests), 0)
@@ -338,7 +338,7 @@ func TestParseOutputOnNoPackageResult(t *testing.T) {
 
 	// package failed
 	pkg := pkgs[0]
-	assert.Equal(t, pkg.Name, "github.com/turbinelabs/agent/sdagentctl/helper")
+	assert.Equal(t, pkg.Name, "foo/bar/baz")
 	assert.Equal(t, pkg.Result, results.Failed)
 	assert.Equal(t, pkg.Duration, 11.0)
 	assert.Equal(t, len(pkg.Tests), 1)
