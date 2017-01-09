@@ -14,7 +14,9 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package http
+// Package server produces a binary called testserver, which serves HTTP
+// on a specified port with a specified error rate and latency distribution.
+package server
 
 import (
 	"flag"

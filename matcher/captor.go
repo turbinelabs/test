@@ -21,18 +21,25 @@ import (
 	"reflect"
 )
 
+// CaptureAny will match and capture any value.
 func CaptureAny() *ValueCaptor {
 	return &ValueCaptor{nil, nil}
 }
 
+// CaptureMatching is a ValueCaptor that proxies the given Matcher to match
+// and capture matching values.
 func CaptureMatching(m Matcher) *ValueCaptor {
 	return &ValueCaptor{m, nil}
 }
 
+// CaptureType is a ValueCaptor that uses an IsOfType matcher to capture
+// values of the given reflect.Type.
 func CaptureType(t reflect.Type) *ValueCaptor {
 	return &ValueCaptor{IsOfType{t}, nil}
 }
 
+// A ValueCaptor can be wrapped around a Matcher to produce a Matcher
+// which also captures the most recent matched value.
 type ValueCaptor struct {
 	mustMatch Matcher
 	V         interface{}

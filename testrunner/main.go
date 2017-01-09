@@ -27,8 +27,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/turbinelabs/test/formatter/junit"
-	"github.com/turbinelabs/test/parser"
+	"github.com/turbinelabs/test/testrunner/junit"
+	"github.com/turbinelabs/test/testrunner/parser"
 	"github.com/turbinelabs/test/testrunner/results"
 )
 

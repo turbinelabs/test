@@ -21,11 +21,13 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/turbinelabs/test/server/http"
+	"github.com/turbinelabs/test/server"
 )
 
+// serves HTTP on a specified port with a specified error rate and latency
+// distribution
 func main() {
-	ts, err := http.NewTestServerFromFlagSet(flag.CommandLine, os.Args[1:])
+	ts, err := server.NewTestServerFromFlagSet(flag.CommandLine, os.Args[1:])
 	if err != nil {
 		fmt.Println("Error:", err)
 		fmt.Println("Usage: ")

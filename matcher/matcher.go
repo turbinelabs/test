@@ -14,7 +14,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// Package matcher provides helpful implementations of the gomock.Matcher interface.
+// Package matcher provides helpful implementations of the gomock.Matcher
+// interface.
 package matcher
 
 import (
@@ -25,8 +26,8 @@ import (
 	"github.com/turbinelabs/test/check"
 )
 
-// Matcher duplicates gomock.Matcher interface. It is not referenced directly so
-// as to not create a dependency between the test parent package and gomock.
+// Matcher duplicates gomock.Matcher interface. It is not referenced directly
+// so as to not create a dependency between the test parent package and gomock.
 type Matcher interface {
 	Matches(interface{}) bool
 	String() string

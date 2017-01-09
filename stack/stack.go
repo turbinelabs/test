@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// Package to produce user friendly stack traces.
+// Package stack is used to produce user friendly stack traces.
 //
 // Usage:
 //   s := stack.New()

@@ -14,23 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package io
-
-import (
-	"io"
-)
-
-type noopWriter struct{}
-
-// NewNoopWriter produces a writer that does nothing.
-func NewNoopWriter() io.WriteCloser {
-	return &noopWriter{}
-}
-
-func (_ *noopWriter) Write(p []byte) (int, error) {
-	return len(p), nil
-}
-
-func (_ *noopWriter) Close() error {
-	return nil
-}
+// The test package contains a variety of small helper packages to make writing
+// tests in go a little easier. The test project has no external dependencies
+// beyond the go standard library.
+package test

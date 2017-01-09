@@ -72,6 +72,8 @@ type JunitOutput struct {
 	Contents string `xml:",cdata"`
 }
 
+// WriteReport writes a []*results.TestPackage to a writer using
+// the junit-standard format for test results.
 func WriteReport(out io.Writer, pkgs []*results.TestPackage) {
 	suites := GenerateReport(pkgs)
 
@@ -117,6 +119,8 @@ func sanitize(s string) string {
 	return string(buf)
 }
 
+// GenerateReport takes a []*results.TestPackage and produces a
+// unitTestSuites suitable for marshalling as standard junit test results.
 func GenerateReport(pkgs []*results.TestPackage) JunitTestSuites {
 	suites := make([]JunitTestSuite, len(pkgs))
 

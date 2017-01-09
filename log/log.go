@@ -14,6 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+// Package log provides functions for producing useful Loggers for testing
 package log
 
 import (
@@ -23,10 +24,14 @@ import (
 	"github.com/turbinelabs/test/io"
 )
 
+// NewNoopLogger produces a Logger that does nothing.
 func NewNoopLogger() *log.Logger {
 	return log.New(io.NewNoopWriter(), "", log.LstdFlags)
 }
 
+// NewBufferLogger produces a Logger that writes to a buffer, along with a
+// pointer to the buffer to which it writes. This is useful in verifying that
+// a Logger is used as expected.
 func NewBufferLogger() (*log.Logger, *bytes.Buffer) {
 	buf := bytes.NewBuffer(make([]byte, 0, 1024))
 	return log.New(buf, "", log.LstdFlags), buf

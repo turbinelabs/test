@@ -14,5 +14,5 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// Package http includes useful extensions to the net/http/httptest package
+// Package http includes useful extensions to the net/http/httptest package.
 package http

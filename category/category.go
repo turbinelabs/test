@@ -24,16 +24,21 @@ import (
 	"testing"
 )
 
+// TestCategory represents a category of tests/
 type TestCategory string
 
 const (
 	IntegrationTest TestCategory = "integration"
 )
 
+// EnvName produces the environment variable that can be set to enable
+// tests of this category.
 func (c TestCategory) EnvName() string {
 	return fmt.Sprintf("%s_TEST", strings.ToUpper(string(c)))
 }
 
+// SkipUnless will skip the enclosing test unless the given TestCategory is
+// present in the environment.
 func SkipUnless(t *testing.T, category TestCategory) {
 	if os.Getenv(category.EnvName()) == "" {
 		t.Skipf("Skipping test: set %s to enable this test", category.EnvName())

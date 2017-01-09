@@ -25,6 +25,8 @@ const FailingReaderMessage = "failingReader error"
 
 type failingReader struct{}
 
+// NewFailingReader produces an io.ReadCloser that returns an error for all
+// calls to Read()
 func NewFailingReader() io.ReadCloser {
 	return &failingReader{}
 }

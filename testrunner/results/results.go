@@ -22,7 +22,7 @@ import (
 	"bytes"
 )
 
-// passed/skipped/failed
+// TestResult is a psuedo-enum representing passed/skipped/failed
 type TestResult int
 
 const (
