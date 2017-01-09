@@ -21,6 +21,8 @@ import (
 	"fmt"
 	"io"
 	"reflect"
+
+	"github.com/turbinelabs/test/check"
 )
 
 // Matcher duplicates gomock.Matcher interface. It is not referenced directly so
@@ -51,6 +53,8 @@ func (a AnyWriter) String() string {
 	return fmt.Sprintf("AnyWriter(%q)", a.Data)
 }
 
+// PredicateMatcher implements gomock.Matcher and can be used to mock a
+// call that receives any value that passes a specified predicate.
 type PredicateMatcher struct {
 	Test func(interface{}) bool
 	Name string
@@ -66,6 +70,8 @@ func (em PredicateMatcher) String() string {
 	return fmt.Sprintf("PredicateMatcher(%s)", em.Name)
 }
 
+// IsOfType implements gomock.Matcher and can be used to mock a
+// call that receives any value of a specified reflect.Type.
 type IsOfType struct {
 	Type reflect.Type
 }
@@ -78,4 +84,21 @@ func (iot IsOfType) Matches(x interface{}) bool {
 
 func (iot IsOfType) String() string {
 	return fmt.Sprintf("IsOfType(%s)", iot.Type.String())
+}
+
+// SameElements implements gomock.Matcher and can be used to mock a
+// call that receives an array-like parameter where the order of
+// elements may vary. Array-like parameters are arrays, slices, or
+// channels. The Elems field is expected to be an array or slice. See
+// check.HasSameElements for details on the comparison used.
+type SameElements struct {
+	Elems interface{}
+}
+
+func (se SameElements) Matches(x interface{}) bool {
+	return check.HasSameElements(x, se.Elems) == nil
+}
+
+func (se SameElements) String() string {
+	return fmt.Sprintf("SameElements(%+v)", se.Elems)
 }

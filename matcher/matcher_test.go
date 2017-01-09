@@ -61,3 +61,12 @@ func TestIsOfTypeMatcher(t *testing.T) {
 	assert.True(t, iot.Matches(teststruct{1234, "ok"}))
 	assert.Equal(t, iot.String(), "IsOfType(matcher.teststruct)")
 }
+
+func TestSameElementsMatcher(t *testing.T) {
+	se := SameElements{[]int{1, 2, 3}}
+
+	assert.False(t, se.Matches("nope"))
+	assert.False(t, se.Matches([]string{"1", "2", "3"}))
+	assert.True(t, se.Matches([]int{1, 2, 3}))
+	assert.True(t, se.Matches([]int{3, 1, 2}))
+}

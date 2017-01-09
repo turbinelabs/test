@@ -24,12 +24,12 @@ import (
 	"os"
 	"reflect"
 	"regexp"
-	"strconv"
 	"strings"
 	"testing"
 
 	"github.com/turbinelabs/test/check"
 	"github.com/turbinelabs/test/stack"
+	tbnstr "github.com/turbinelabs/test/strings"
 )
 
 const (
@@ -176,7 +176,7 @@ func (grp *G) Fatal(args ...interface{}) {
 // Nil asserts the nilness of got.
 func Nil(t testing.TB, got interface{}) bool {
 	if !check.IsNil(got) {
-		Tracing(t).Errorf("got (%T) %s, want <nil>", got, stringify(got))
+		Tracing(t).Errorf("got (%T) %s, want <nil>", got, tbnstr.Stringify(got))
 		return false
 	}
 	return true
@@ -185,7 +185,7 @@ func Nil(t testing.TB, got interface{}) bool {
 // NonNil asserts the non-nilness of got.
 func NonNil(t testing.TB, got interface{}) bool {
 	if check.IsNil(got) {
-		Tracing(t).Errorf("got (%T) %s, want <non-nil>", got, stringify(got))
+		Tracing(t).Errorf("got (%T) %s, want <non-nil>", got, tbnstr.Stringify(got))
 		return false
 	}
 	return true
@@ -199,32 +199,11 @@ func mkErrorMsgWithExp(got, want interface{}, expectation string) string {
 	return fmt.Sprintf(
 		"got (%T) %s, %s (%T) %s",
 		got,
-		stringify(got),
+		tbnstr.Stringify(got),
 		expectation,
 		want,
-		stringify(want),
+		tbnstr.Stringify(want),
 	)
-}
-
-func stringify(i interface{}) string {
-	var s string
-	switch t := i.(type) {
-	case string:
-		s = t
-	case *string:
-		if t == nil {
-			return "<nil>"
-		}
-		s = *t
-	default:
-		return fmt.Sprintf("%+v", i)
-	}
-
-	if strconv.CanBackquote(s) {
-		return "`" + s + "`"
-	} else {
-		return strconv.Quote(s)
-	}
 }
 
 // Equal asserts that got == want, and will panic for types that can't
@@ -279,10 +258,10 @@ func ArrayEqual(t testing.TB, got, want interface{}) bool {
 	wantValues := arrayValues(want)
 
 	if gotValues == nil && wantValues != nil {
-		Tracing(t).Errorf("got (%T) nil, want (%T) %s", got, want, stringify(want))
+		Tracing(t).Errorf("got (%T) nil, want (%T) %s", got, want, tbnstr.Stringify(want))
 		return false
 	} else if wantValues == nil && gotValues != nil {
-		Tracing(t).Errorf("got (%T) %s, want (%T) nil", got, stringify(got), want)
+		Tracing(t).Errorf("got (%T) %s, want (%T) nil", got, tbnstr.Stringify(got), want)
 		return false
 	}
 
@@ -316,14 +295,14 @@ func ArrayEqual(t testing.TB, got, want interface{}) bool {
 				"index %d: got extra value: (%T) %s",
 				i,
 				gotIface,
-				stringify(gotIface),
+				tbnstr.Stringify(gotIface),
 			)
 		} else if wantValid {
 			err = fmt.Sprintf(
 				"index %d: missing wanted value: (%T) %s",
 				i,
 				wantIface,
-				stringify(wantIface),
+				tbnstr.Stringify(wantIface),
 			)
 		}
 
@@ -357,10 +336,10 @@ func MapEqual(t testing.TB, got, want interface{}) bool {
 	gotKeys := gotValue.MapKeys()
 
 	if gotValue.IsNil() && !wantValue.IsNil() {
-		Tracing(t).Errorf("got (%T) nil, want (%T) %s", got, want, stringify(want))
+		Tracing(t).Errorf("got (%T) nil, want (%T) %s", got, want, tbnstr.Stringify(want))
 		return false
 	} else if wantValue.IsNil() && !gotValue.IsNil() {
-		Tracing(t).Errorf("got (%T) %s, want (%T) nil", got, stringify(got), want)
+		Tracing(t).Errorf("got (%T) %s, want (%T) nil", got, tbnstr.Stringify(got), want)
 		return false
 	}
 
@@ -375,16 +354,16 @@ func MapEqual(t testing.TB, got, want interface{}) bool {
 			if !reflect.DeepEqual(gotIface, wantIface) {
 				err = fmt.Sprintf(
 					"key %s: %s",
-					stringify(wantKey.Interface()),
+					tbnstr.Stringify(wantKey.Interface()),
 					mkErrorMsg(gotIface, wantIface),
 				)
 			}
 		} else {
 			err = fmt.Sprintf(
 				"missing key %s: wanted value: (%T) %s",
-				stringify(wantKey.Interface()),
+				tbnstr.Stringify(wantKey.Interface()),
 				wantIface,
-				stringify(wantIface),
+				tbnstr.Stringify(wantIface),
 			)
 		}
 		if err != "" {
@@ -398,9 +377,9 @@ func MapEqual(t testing.TB, got, want interface{}) bool {
 			gotIface := gotValue.MapIndex(gotKey).Interface()
 			err := fmt.Sprintf(
 				"extra key %s: unwanted value: (%T) %s",
-				stringify(gotKey.Interface()),
+				tbnstr.Stringify(gotKey.Interface()),
 				gotIface,
-				stringify(gotIface),
+				tbnstr.Stringify(gotIface),
 			)
 			errors = append(errors, err)
 		}
@@ -564,13 +543,13 @@ func Failed(t testing.TB, msg string) {
 func ErrorContains(t testing.TB, got error, want string) bool {
 	tr := Tracing(t)
 	if got == nil {
-		tr.Errorf("got nil error, wanted message containing %s", stringify(want))
+		tr.Errorf("got nil error, wanted message containing %s", tbnstr.Stringify(want))
 		return false
 	} else if !strings.Contains(got.Error(), want) {
 		tr.Errorf(
 			"got error %s, wanted message containing %s",
-			stringify(got.Error()),
-			stringify(want),
+			tbnstr.Stringify(got.Error()),
+			tbnstr.Stringify(want),
 		)
 		return false
 	}
@@ -582,13 +561,13 @@ func ErrorContains(t testing.TB, got error, want string) bool {
 func ErrorDoesNotContain(t testing.TB, got error, want string) bool {
 	tr := Tracing(t)
 	if got == nil {
-		tr.Errorf("got nil error, wanted message not containing %s", stringify(want))
+		tr.Errorf("got nil error, wanted message not containing %s", tbnstr.Stringify(want))
 		return false
 	} else if strings.Contains(got.Error(), want) {
 		tr.Errorf(
 			"got error %s, wanted message not containing %s",
-			stringify(got.Error()),
-			stringify(want),
+			tbnstr.Stringify(got.Error()),
+			tbnstr.Stringify(want),
 		)
 		return false
 	}
@@ -602,8 +581,8 @@ func StringContains(t testing.TB, got, want string) bool {
 	if !strings.Contains(got, want) {
 		tr.Errorf(
 			"got %s, wanted message containing %s",
-			stringify(got),
-			stringify(want),
+			tbnstr.Stringify(got),
+			tbnstr.Stringify(want),
 		)
 		return false
 	}
@@ -617,134 +596,13 @@ func StringDoesNotContain(t testing.TB, got, want string) bool {
 	if strings.Contains(got, want) {
 		tr.Errorf(
 			"got %s, wanted message not containing %s",
-			stringify(got),
-			stringify(want),
+			tbnstr.Stringify(got),
+			tbnstr.Stringify(want),
 		)
 		return false
 	}
 
 	return true
-}
-
-func checkContainerTypes(t testing.TB, gotType, wantType reflect.Type) bool {
-	gotKind := gotType.Kind()
-	wantKind := wantType.Kind()
-
-	switch gotKind {
-	case reflect.Array, reflect.Slice:
-		// ok
-
-	case reflect.Chan:
-		if gotType.ChanDir()&reflect.RecvDir == 0 {
-			t.Errorf("got type '%v', a non-receiving channel", gotType)
-			return false
-		}
-
-	default:
-		t.Errorf("got type '%v', can only compare arrays, slices, or channels", gotType)
-		return false
-	}
-
-	if wantKind != reflect.Array && wantKind != reflect.Slice {
-		// We only compare with Array/Slices
-		t.Errorf(
-			"got type '%v', want type must be an array or slice of %s, not '%v'",
-			gotType,
-			gotType.Elem(),
-			wantType)
-		return false
-	}
-
-	// The Array/Slice/Chan element types must match
-	if gotType.Elem() != wantType.Elem() {
-		t.Errorf(
-			"got type '%v', wanted type '%v': contains types do not match",
-			gotType,
-			wantType)
-		return false
-	}
-
-	return true
-}
-
-func assertSameArray(gotValue, wantValue []reflect.Value) string {
-	gotLen := len(gotValue)
-	wantLen := len(wantValue)
-
-	unusedGotIndicies := make([]int, gotLen)
-	for i := 0; i < gotLen; i++ {
-		unusedGotIndicies[i] = i
-	}
-
-	unusedWantIndicies := make([]int, wantLen)
-	for i := 0; i < wantLen; i++ {
-		unusedWantIndicies[i] = i
-	}
-
-	for gotIndex, v := range gotValue {
-		for _, wantIndex := range unusedWantIndicies {
-			if wantIndex != -1 {
-				w := wantValue[wantIndex]
-				if reflect.DeepEqual(v.Interface(), w.Interface()) {
-					unusedWantIndicies[wantIndex] = -1
-					unusedGotIndicies[gotIndex] = -1
-					break
-				}
-			}
-		}
-	}
-
-	extra := []interface{}{}
-	for _, gotIndex := range unusedGotIndicies {
-		if gotIndex != -1 {
-			extra = append(extra, gotValue[gotIndex].Interface())
-		}
-	}
-
-	missing := []interface{}{}
-	for _, wantIndex := range unusedWantIndicies {
-		if wantIndex != -1 {
-			missing = append(missing, wantValue[wantIndex].Interface())
-		}
-	}
-
-	if gotLen != wantLen || len(extra) > 0 || len(missing) > 0 {
-		missingStr := ""
-		if len(missing) > 0 {
-			missingStr = fmt.Sprintf("; missing elements: %s", stringify(missing))
-		}
-
-		extraStr := ""
-		if len(extra) > 0 {
-			extraStr = fmt.Sprintf("; extra elements: %s", stringify(extra))
-		}
-
-		gotValueStr := []string{}
-		for _, gv := range gotValue {
-			gotValueStr = append(
-				gotValueStr,
-				fmt.Sprintf("(%s) %s", gv.Type().Name(), stringify(gv)),
-			)
-		}
-		wantValueStr := []string{}
-		for _, wv := range wantValue {
-			wantValueStr = append(
-				wantValueStr,
-				fmt.Sprintf("(%s) %s", wv.Type().Name(), stringify(wv)),
-			)
-		}
-
-		return fmt.Sprintf(
-			"got [%s] (len %d), wanted [%s] (len %d)%s%s",
-			strings.Join(gotValueStr, ", "),
-			gotLen,
-			strings.Join(wantValueStr, ", "),
-			wantLen,
-			missingStr,
-			extraStr)
-	}
-
-	return ""
 }
 
 // Compares two container-like values. The got parameter may be an
@@ -754,43 +612,8 @@ func assertSameArray(gotValue, wantValue []reflect.Value) string {
 // either blocks or indicates it was closed). The got and want
 // values are then compared without respect to order.
 func HasSameElements(t testing.TB, got, want interface{}) bool {
-	tr := Tracing(t)
-	gotType := reflect.TypeOf(got)
-	wantType := reflect.TypeOf(want)
-	if !checkContainerTypes(tr, gotType, wantType) {
-		return false
-	}
-
-	gotValue := reflect.ValueOf(got)
-
-	wantValueArray := arrayValues(want)
-
-	var msg string
-	switch gotType.Kind() {
-	case reflect.Array, reflect.Slice:
-		gotValueArray := arrayValues(got)
-		msg = assertSameArray(gotValueArray, wantValueArray)
-
-	case reflect.Chan:
-		gotValueArray := []reflect.Value{}
-		for {
-			v, ok := gotValue.TryRecv()
-			if !ok {
-				// blocked or closed
-				break
-			}
-			gotValueArray = append(gotValueArray, v)
-		}
-		msg = assertSameArray(gotValueArray, wantValueArray)
-
-	default:
-		msg = fmt.Sprintf(
-			"internal error: unexpected kind %v",
-			gotType.Kind())
-	}
-
-	if msg != "" {
-		tr.Errorf(msg)
+	if err := check.HasSameElements(got, want); err != nil {
+		Tracing(t).Error(err.Error())
 		return false
 	}
 

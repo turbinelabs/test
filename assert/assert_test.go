@@ -18,7 +18,6 @@ package assert
 
 import (
 	"fmt"
-	"reflect"
 	"strings"
 	"sync"
 	"testing"
@@ -694,6 +693,8 @@ func TestStringDoesNotContain(t *testing.T) {
 }
 
 func TestHasSameElements(t *testing.T) {
+	// mostly tested in the check package
+
 	tr := Tracing(t)
 	mockT := &testing.T{}
 
@@ -724,112 +725,6 @@ func TestHasSameElements(t *testing.T) {
 	expectDifferent(a4, a1)
 	expectSame(a5, a6)
 	expectDifferent(a5, a7)
-
-	a8 := []complexStruct{cs1a, cs2b}
-	a9 := []complexStruct{cs2b, cs1a}
-	a10 := []complexStruct{cs1a, cs4}
-
-	expectSame(a8, a9)
-	expectDifferent(a8, a10)
-
-	big_array := []int{1, 2, 3, 4, 5, 6, 5, 4, 3, 2, 1}
-	s1 := big_array[0:5]
-	s2 := big_array[6:]
-	s3 := big_array[3:9]
-
-	expectSame(s1, s2)
-	expectDifferent(s1, s3)
-
-	c1 := make(chan string, 10)
-	c2 := make(chan string, 10)
-	c3 := make(chan string, 10)
-
-	for _, ch := range []string{"a", "b", "c"} {
-		c1 <- ch
-		c2 <- ch + ch
-		c3 <- ch
-	}
-	close(c1)
-	close(c2)
-	// do not close c3
-
-	expectSame(c1, []string{"a", "b", "c"})
-	expectDifferent(c2, []string{"a", "b", "c"})
-	expectSame(c3, []string{"a", "b", "c"})
-}
-
-func TestHasSameElementsInternals(t *testing.T) {
-	mockT := &testing.T{}
-	tr := Tracing(t)
-
-	strType := reflect.TypeOf("x")
-
-	intArray := []int{1, 2, 3}
-	intChan := make(chan int, 1)
-
-	intArrayType := reflect.TypeOf(intArray)
-	intSliceType := reflect.TypeOf(intArray[0:1])
-	intChanType := reflect.TypeOf(intChan)
-
-	strArray := []string{"a", "b", "c"}
-	strChan := make(chan string, 1)
-	var strSendChan chan<- string
-	strSendChan = strChan
-
-	strArrayType := reflect.TypeOf(strArray)
-	strSliceType := reflect.TypeOf(strArray[0:1])
-	strChanType := reflect.TypeOf(strChan)
-	strSendChanType := reflect.TypeOf(strSendChan)
-
-	acceptableCases := [][]reflect.Type{
-		{intArrayType, intArrayType},
-		{intSliceType, intArrayType},
-		{intArrayType, intSliceType},
-		{intSliceType, intSliceType},
-		{intChanType, intArrayType},
-		{intChanType, intSliceType},
-		{strArrayType, strArrayType},
-		{strSliceType, strArrayType},
-		{strArrayType, strSliceType},
-		{strSliceType, strSliceType},
-		{strChanType, strArrayType},
-		{strChanType, strSliceType},
-	}
-
-	unacceptableCases := [][]reflect.Type{
-		{strType, strArrayType},
-		{strType, strSliceType},
-		{strArrayType, intArrayType},
-		{intArrayType, strArrayType},
-		{strChanType, strChanType},
-		{strArrayType, strType},
-		{strSendChanType, strChanType},
-		{strSendChanType, strArrayType},
-	}
-
-	for i, testcase := range acceptableCases {
-		gotType := testcase[0]
-		wantType := testcase[1]
-		if !checkContainerTypes(mockT, gotType, wantType) {
-			tr.Errorf(
-				"expected '%v' and '%v' to be accepted, but was not (case %d)",
-				gotType,
-				wantType,
-				i)
-		}
-	}
-
-	for i, testcase := range unacceptableCases {
-		gotType := testcase[0]
-		wantType := testcase[1]
-		if checkContainerTypes(mockT, gotType, wantType) {
-			tr.Errorf(
-				"expected '%v' and '%v' to be rejected, but was not (case %d)",
-				gotType,
-				wantType,
-				i)
-		}
-	}
 }
 
 func TestPanic(t *testing.T) {
