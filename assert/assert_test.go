@@ -952,3 +952,37 @@ func TestUngrouped(t *testing.T) {
 		tr.Errorf("got '%s', want prefix '%s'", mockT.log[0].args, expectedPrefix)
 	}
 }
+
+func TestEqualWithin(t *testing.T) {
+	tr := Tracing(t)
+	mockT := &mockT{}
+
+	if !EqualWithin(mockT, 0, 0, 0) {
+		tr.Errorf("expected 0.0 to equal 0.0 within 0.0")
+	}
+
+	if !EqualWithin(mockT, 1.0, 1.1, 0.2) {
+		tr.Errorf("expected 1.0 to equal 1.1 within 0.2")
+	}
+
+	if EqualWithin(mockT, 1.0, 2.0, 0.5) {
+		tr.Errorf("expected 1.0 to not equal 2.0 within 0.5")
+	}
+}
+
+func TestNotEqualWithin(t *testing.T) {
+	tr := Tracing(t)
+	mockT := &mockT{}
+
+	if NotEqualWithin(mockT, 0, 0, 0) {
+		tr.Errorf("expected 0.0 to equal 0.0 within 0.0")
+	}
+
+	if NotEqualWithin(mockT, 1.0, 1.1, 0.2) {
+		tr.Errorf("expected 1.0 to equal 1.1 within 0.2")
+	}
+
+	if !NotEqualWithin(mockT, 1.0, 2.0, 0.5) {
+		tr.Errorf("expected 1.0 to not equal 2.0 within 0.5")
+	}
+}

@@ -226,6 +226,29 @@ func NotEqual(t testing.TB, got, want interface{}) bool {
 	return true
 }
 
+// EqualWithin asserts that two floating point numbers are within a
+// given epsilon of each other. If both numbers are NaN, +Inf, or
+// -Inf, they are equal irrespective of the value of epsilon.
+func EqualWithin(t testing.TB, got, want, epsilon float64) bool {
+	if !check.EqualWithin(got, want, epsilon) {
+		Tracing(t).Error(fmt.Sprintf("got %g, want %g (within %g)", got, want, epsilon))
+		return false
+	}
+	return true
+}
+
+// NotEqualWithin asserts that two floating point numbers are not
+// within a given epsilon of each other. If both numbers are Nan,
+// +Inf, -Inf they are considered equal irrespective of epsilon (and
+// this assertion will fail).
+func NotEqualWithin(t testing.TB, got, want, epsilon float64) bool {
+	if check.EqualWithin(got, want, epsilon) {
+		Tracing(t).Error(fmt.Sprintf("got %g, want != %g (within %g)", got, want, epsilon))
+		return false
+	}
+	return true
+}
+
 func isArrayLike(i interface{}) bool {
 	t := reflect.TypeOf(i)
 	if t == nil {
