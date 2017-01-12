@@ -162,3 +162,55 @@ func TestHasSameElements(t *testing.T) {
 	expectDifferent(c2, []string{"a", "b", "c"})
 	expectSame(c3, []string{"a", "b", "c"})
 }
+
+func TestIfaceArrayStrings(t *testing.T) {
+	short := [][]interface{}{
+		{"abc", 123},
+		{"xyz", "pdq"},
+	}
+
+	long := [][]interface{}{
+		{"abc", 123},
+		{"this is pretty long, so split it", "and stuff for readability"},
+	}
+
+	strs := ifaceArrayStrings(short...)
+	if len(strs) != 2 {
+		t.Fatalf("incorrect number of short results, got %d, wanted 2", len(strs))
+	}
+	if strs[0] != "[(string) `abc`, (int) 123]" {
+		t.Errorf("unexpected formatting for short[0]: %q", strs[0])
+	}
+	if strs[1] != "[(string) `xyz`, (string) `pdq`]" {
+		t.Errorf("unexpected formatting for short[1]: %q", strs[1])
+	}
+
+	strs = ifaceArrayStrings(long...)
+	if len(strs) != 2 {
+		t.Fatalf("incorrect number of long results, got %d, wanted 2", len(strs))
+	}
+	if strs[0] != "[\n(string) `abc`,\n(int) 123\n]" {
+		t.Errorf("unexpected formatting for long[0]: %q", strs[0])
+	}
+	if strs[1] != "[\n(string) `this is pretty long, so split it`,\n(string) `and stuff for readability`\n]" {
+		t.Errorf("unexpected formatting for long[1]: %q", strs[1])
+	}
+}
+
+func TestValueArrayStrings(t *testing.T) {
+	v := [][]reflect.Value{
+		{reflect.ValueOf("abc"), reflect.ValueOf(123)},
+		{reflect.ValueOf("xyz"), reflect.ValueOf("pdq")},
+	}
+
+	strs := valueArrayStrings(v...)
+	if len(strs) != 2 {
+		t.Fatalf("incorrect number of results, got %d, wanted 2", len(strs))
+	}
+	if strs[0] != "[(string) `abc`, (int) 123]" {
+		t.Errorf("unexpected formatting for v[0]: %q", strs[0])
+	}
+	if strs[1] != "[(string) `xyz`, (string) `pdq`]" {
+		t.Errorf("unexpected formatting for v[1]: %q", strs[1])
+	}
+}

@@ -61,6 +61,93 @@ func checkContainerTypes(gotType, wantType reflect.Type) error {
 	return nil
 }
 
+type multiArray interface {
+	Len() int
+	InnerLen(int) int
+	Value(int, int) interface{}
+}
+
+type valueMultiArray [][]reflect.Value
+
+func (a valueMultiArray) Len() int                   { return len(a) }
+func (a valueMultiArray) InnerLen(i int) int         { return len(a[i]) }
+func (a valueMultiArray) Value(i, j int) interface{} { return a[i][j] }
+
+var _ multiArray = valueMultiArray{}
+
+type ifaceMultiArray [][]interface{}
+
+func (a ifaceMultiArray) Len() int                   { return len(a) }
+func (a ifaceMultiArray) InnerLen(i int) int         { return len(a[i]) }
+func (a ifaceMultiArray) Value(i, j int) interface{} { return a[i][j] }
+
+var _ multiArray = ifaceMultiArray{}
+
+func formattedIfaceArrayStrings(
+	format func(i interface{}) string,
+	arrays multiArray,
+) []string {
+	if arrays.Len() == 0 {
+		return []string{}
+	}
+
+	inline := true
+	ifaceStrs := make([][]string, arrays.Len())
+	for i := 0; i < arrays.Len(); i++ {
+		strs := make([]string, arrays.InnerLen(i))
+		length := 0
+
+		for j := 0; j < arrays.InnerLen(i); j++ {
+			s := format(arrays.Value(i, j))
+			strs[j] = s
+			length += len(s)
+		}
+
+		if length > 40 {
+			inline = false
+		}
+		ifaceStrs[i] = strs
+	}
+
+	results := make([]string, arrays.Len())
+	for i, strs := range ifaceStrs {
+		if inline {
+			results[i] = fmt.Sprintf("[%s]", strings.Join(strs, ", "))
+		} else {
+			results[i] = fmt.Sprintf("[\n%s\n]", strings.Join(strs, ",\n"))
+		}
+	}
+
+	return results
+}
+
+func ifaceArrayStrings(ifaceArrays ...[]interface{}) []string {
+	return formattedIfaceArrayStrings(
+		func(i interface{}) string {
+			return fmt.Sprintf("(%T) %s", i, tbnstr.Stringify(i))
+		},
+		ifaceMultiArray(ifaceArrays),
+	)
+}
+
+func ifaceArrayString(ifaceArrays []interface{}) string {
+	return ifaceArrayStrings(ifaceArrays)[0]
+}
+
+func valueArrayStrings(valueArrays ...[]reflect.Value) []string {
+	return formattedIfaceArrayStrings(
+		func(i interface{}) string {
+			v := i.(reflect.Value)
+			return fmt.Sprintf(
+				"(%s) %s",
+				v.Type().Name(),
+				tbnstr.Stringify(v.Interface()),
+			)
+		},
+		valueMultiArray(valueArrays),
+	)
+}
+
 func assertSameArray(gotValue, wantValue []reflect.Value) error {
 	gotLen := len(gotValue)
 	wantLen := len(wantValue)
@@ -105,34 +192,24 @@ func assertSameArray(gotValue, wantValue []reflect.Value) error {
 	if gotLen != wantLen || len(extra) > 0 || len(missing) > 0 {
 		missingStr := ""
 		if len(missing) > 0 {
-			missingStr = fmt.Sprintf("; missing elements: %s", tbnstr.Stringify(missing))
+			missingStr =
+				fmt.Sprintf(";\n missing elements: %s", ifaceArrayString(missing))
 		}
 
 		extraStr := ""
 		if len(extra) > 0 {
-			extraStr = fmt.Sprintf("; extra elements: %s", tbnstr.Stringify(extra))
+			extraStr = fmt.Sprintf(";\nextra elements: %s", ifaceArrayString(extra))
 		}
 
-		gotValueStr := []string{}
-		for _, gv := range gotValue {
-			gotValueStr = append(
-				gotValueStr,
-				fmt.Sprintf("(%s) %s", gv.Type().Name(), tbnstr.Stringify(gv)),
-			)
-		}
-		wantValueStr := []string{}
-		for _, wv := range wantValue {
-			wantValueStr = append(
-				wantValueStr,
-				fmt.Sprintf("(%s) %s", wv.Type().Name(), tbnstr.Stringify(wv)),
-			)
-		}
+		gotWantStrs := valueArrayStrings(gotValue, wantValue)
+		gotValueStr := gotWantStrs[0]
+		wantValueStr := gotWantStrs[1]
 
 		return fmt.Errorf(
-			"got [%s] (len %d), wanted [%s] (len %d)%s%s",
-			strings.Join(gotValueStr, ", "),
+			"got %s (len %d),\nwanted %s (len %d)%s%s",
+			gotValueStr,
 			gotLen,
-			strings.Join(wantValueStr, ", "),
+			wantValueStr,
 			wantLen,
 			missingStr,
 			extraStr)
