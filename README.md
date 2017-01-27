@@ -22,7 +22,7 @@ beyond the go standard library.
 
 ## Requirements
 
-- Go 1.7.3 or later (previous versions may work, but we don't build or test against them)
+- Go 1.7.4 or later (previous versions may work, but we don't build or test against them)
 
 ## Install
 
