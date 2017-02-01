@@ -13,8 +13,9 @@
 
 # turbinelabs/test
 
+[![Apache 2.0](https://img.shields.io/hexpm/l/plug.svg)](LICENSE)
 [![GoDoc](https://https://godoc.org/github.com/turbinelabs/test?status.svg)](https://https://godoc.org/github.com/turbinelabs/test)
-[https://circleci.com/gh/turbinelabs/test](![CircleCI`](https://circleci.com/gh/turbinelabs/test.svg?style=svg))
+[![CircleCI](https://circleci.com/gh/turbinelabs/test.svg?style=shield)](https://circleci.com/gh/turbinelabs/test)
 
 The test project contains a variety of small helper packages to make writing
 tests in go a little easier. The test project has no external dependencies
