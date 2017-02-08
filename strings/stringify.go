@@ -41,7 +41,9 @@ func Stringify(i interface{}) string {
 		}
 		s = *t
 	case fmt.Stringer:
-		if reflect.ValueOf(t).IsNil() {
+		v := reflect.ValueOf(t)
+		kind := v.Kind()
+		if kind >= reflect.Chan && kind <= reflect.Slice && v.IsNil() {
 			return "<nil>"
 		}
 

@@ -14,8 +14,9 @@ type stringer struct {
 	s string
 }
 
-func (x *stringer) String() string { return x.s }
+func (x stringer) String() string { return x.s }
 
+var _ fmt.Stringer = stringer{}
 var _ fmt.Stringer = &stringer{}
 
 func strp(s string) *string { return &s }
@@ -35,6 +36,10 @@ var testCases = []testCase{
 	{(*string)(nil), "<nil>"},
 
 	// fmt.Stringer
+	{stringer{"simple string"}, "`simple string`"},
+	{stringer{"string with backquotes: `x`"}, "\"string with backquotes: `x`\""},
+	{stringer{`string with quotes: "x"`}, "`string with quotes: \"x\"`"},
+	{stringer{""}, "``"},
 	{&stringer{"simple string"}, "`simple string`"},
 	{&stringer{"string with backquotes: `x`"}, "\"string with backquotes: `x`\""},
 	{&stringer{`string with quotes: "x"`}, "`string with quotes: \"x\"`"},
