@@ -19,13 +19,15 @@ package strings
 
 import (
 	"fmt"
+	"reflect"
 	"strconv"
 )
 
 // Generically converts an interface into string. Useful for test
-// error messages.  Nils are encoded as "<nil>", non-string types are
-// encoded via fmt.Sprintf's %+v format specifier. Strings are
-// returned as backticked strings if possible, or else they are
+// error messages.  Nils are encoded as "<nil>". Objects conforming to
+// fmt.Stringer are encoded using the result of String(). Non-string
+// types are encoded via fmt.Sprintf's %+v format specifier. Strings
+// are returned as backticked strings if possible, or else they are
 // returned as double-quoted string literals with appropriate escape
 // sequences (see strconv.Quote).
 func Stringify(i interface{}) string {
@@ -38,6 +40,12 @@ func Stringify(i interface{}) string {
 			return "<nil>"
 		}
 		s = *t
+	case fmt.Stringer:
+		if reflect.ValueOf(t).IsNil() {
+			return "<nil>"
+		}
+
+		s = t.String()
 	default:
 		return fmt.Sprintf("%+v", i)
 	}
