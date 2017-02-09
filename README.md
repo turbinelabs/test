@@ -14,7 +14,7 @@
 # turbinelabs/test
 
 [![Apache 2.0](https://img.shields.io/hexpm/l/plug.svg)](LICENSE)
-[![GoDoc](https://https://godoc.org/github.com/turbinelabs/test?status.svg)](https://https://godoc.org/github.com/turbinelabs/test)
+[![GoDoc](https://godoc.org/github.com/turbinelabs/test?status.svg)](https://godoc.org/github.com/turbinelabs/test)
 [![CircleCI](https://circleci.com/gh/turbinelabs/test.svg?style=shield)](https://circleci.com/gh/turbinelabs/test)
 
 The test project contains a variety of small helper packages to make writing
@@ -57,7 +57,7 @@ Each package is best described in its respective Godoc:
 - [`log`](https://godoc.org/github.com/turbinelabs/test/log):
   useful [`log.Logger`](https://golang.org/pkg/log/#Logger) factories
 - [`matcher`](https://godoc.org/github.com/turbinelabs/test/matcher):
-  useful [`gomock.Matcher`](https://https://godoc.org/github.com/golang/mock/gomock#Matcher)
+  useful [`gomock.Matcher`](https://godoc.org/github.com/golang/mock/gomock#Matcher)
   implementations
 - [`server`](https://godoc.org/github.com/turbinelabs/test/server):
   a command-line configurable test HTTP server
