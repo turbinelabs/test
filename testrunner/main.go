@@ -24,6 +24,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -41,6 +42,25 @@ var RootPackage = getEnv(ENV_ROOT_PACKAGE, "github.com/turbinelabs")
 
 var TestOutput = getEnv(ENV_OUTPUT_DIR, "testresults")
 
+type lockedWriter struct {
+	lock       *sync.Mutex
+	underlying io.Writer
+}
+
+func (w *lockedWriter) Write(p []byte) (n int, err error) {
+	w.lock.Lock()
+	defer w.lock.Unlock()
+
+	return w.underlying.Write(p)
+}
+
+func newLockedWriter(underlying io.Writer) io.Writer {
+	return &lockedWriter{
+		lock:       &sync.Mutex{},
+		underlying: underlying,
+	}
+}
+
 func main() {
 	testExecutable := os.Args[1]
 	pkgName := extractPackageFromTestExecutable(testExecutable)
@@ -50,10 +70,11 @@ func main() {
 
 	test := exec.Command(testExecutable, testArgs...)
 
-	var output bytes.Buffer
+	output := new(bytes.Buffer)
+	outputWriter := newLockedWriter(output)
 
-	test.Stdout = io.MultiWriter(&output, os.Stdout)
-	test.Stderr = io.MultiWriter(&output, os.Stderr)
+	test.Stdout = io.MultiWriter(outputWriter, os.Stdout)
+	test.Stderr = io.MultiWriter(outputWriter, os.Stderr)
 
 	start := time.Now()
 	exitStatus := 0
@@ -73,7 +94,7 @@ func main() {
 
 	duration := time.Since(start)
 
-	pkgs, err := parser.GoLangParser.ParseFn(pkgName, duration, &output)
+	pkgs, err := parser.GoLangParser.ParseFn(pkgName, duration, output)
 	if err != nil {
 		panic(err)
 	}
