@@ -45,7 +45,7 @@ type JunitTestSuite struct {
 
 type JunitProperty struct {
 	Name  string `xml:"name,attr"`
-	Value string `xml:"name,attr"`
+	Value string `xml:"value,attr"`
 }
 
 type JunitTestCase struct {

@@ -94,7 +94,11 @@ func (tr *TracingTB) Fatal(args ...interface{}) {
 // testing.TB)
 type G struct {
 	testing.TB
-	Name string
+	name string
+}
+
+func (g *G) Name() string {
+	return g.name
 }
 
 // Creates a group of assertions with a common error message prefix. The prefix
@@ -126,14 +130,14 @@ func Group(name string, t testing.TB, f func(*G)) {
 //         })
 //     }
 func (grp *G) Group(name string, f func(*G)) {
-	nestedName := fmt.Sprintf("%s %s", grp.Name, name)
+	nestedName := fmt.Sprintf("%s %s", grp.Name(), name)
 	nestedGrp := &G{Tracing(grp.TB), nestedName}
 	f(nestedGrp)
 }
 
 func (grp *G) Errorf(format string, args ...interface{}) {
-	if len(grp.Name) > 0 {
-		prefix := fmt.Sprintf("%s: ", grp.Name)
+	if len(grp.Name()) > 0 {
+		prefix := fmt.Sprintf("%s: ", grp.Name())
 		format = prefix + format
 	}
 
@@ -141,9 +145,9 @@ func (grp *G) Errorf(format string, args ...interface{}) {
 }
 
 func (grp *G) Error(args ...interface{}) {
-	if len(grp.Name) > 0 {
+	if len(grp.Name()) > 0 {
 		newArgs := make([]interface{}, 1, len(args)+1)
-		newArgs[0] = fmt.Sprintf("%s:", grp.Name)
+		newArgs[0] = fmt.Sprintf("%s:", grp.Name())
 		args = append(newArgs, args...)
 	}
 
@@ -151,8 +155,8 @@ func (grp *G) Error(args ...interface{}) {
 }
 
 func (grp *G) Fatalf(format string, args ...interface{}) {
-	if len(grp.Name) > 0 {
-		prefix := fmt.Sprintf("%s: ", grp.Name)
+	if len(grp.Name()) > 0 {
+		prefix := fmt.Sprintf("%s: ", grp.Name())
 		format = prefix + format
 	}
 
@@ -160,9 +164,9 @@ func (grp *G) Fatalf(format string, args ...interface{}) {
 }
 
 func (grp *G) Fatal(args ...interface{}) {
-	if len(grp.Name) > 0 {
+	if len(grp.Name()) > 0 {
 		newArgs := make([]interface{}, 1, len(args)+1)
-		newArgs[0] = fmt.Sprintf("%s:", grp.Name)
+		newArgs[0] = fmt.Sprintf("%s:", grp.Name())
 		args = append(newArgs, args...)
 	}
 
