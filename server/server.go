@@ -26,13 +26,15 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
 )
 
 const (
-	TestServerIdHeader = "TestServer-ID"
+	TestServerIdHeader          = "TestServer-ID"
+	TestServerForceResponseCode = "force-response-code"
 )
 
 type TestServer struct {
@@ -68,11 +70,32 @@ func (th TestHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	respCode := -1
+	values := r.URL.Query()
+
+	if va, ok := values[TestServerForceResponseCode]; ok {
+		if len(va) >= 1 {
+			c, err := strconv.Atoi(va[0])
+			if err != nil {
+				log.Printf("Could not parse %v arg %q", TestServerForceResponseCode, va[0])
+			} else {
+				respCode = c
+			}
+		}
+	}
+
 	if (rand.Float64() * 100.0) < ts.errorRate {
 		ts.verbosef("failing")
-		http.Error(w, "oopsies", 503)
+		if respCode == -1 {
+			respCode = 503
+		}
+		http.Error(w, "oopsies", respCode)
 	} else {
+		if respCode == -1 {
+			respCode = 200
+		}
 		ts.verbosef("succeeding")
+		w.WriteHeader(respCode)
 		fmt.Fprintf(w, "Hi there, I love %s\n", r.URL.Path[1:])
 	}
 }
