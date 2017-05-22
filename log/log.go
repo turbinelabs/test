@@ -31,8 +31,19 @@ func NewNoopLogger() *log.Logger {
 
 // NewBufferLogger produces a Logger that writes to a buffer, along with a
 // pointer to the buffer to which it writes. This is useful in verifying that
-// a Logger is used as expected.
+// a Logger is used as expected. By default all Logger flags are disabled.
 func NewBufferLogger() (*log.Logger, *bytes.Buffer) {
 	buf := bytes.NewBuffer(make([]byte, 0, 1024))
-	return log.New(buf, "", log.LstdFlags), buf
+	return log.New(buf, "", 0), buf
+}
+
+// NewChannelLogger produces a Logger that writes to the returned
+// string channel. The channel is constructed with the given
+// capacity. Logging will block if the channel is full. By default all
+// Logger flags are disabled.
+func NewChannelLogger(capacity int) (*log.Logger, <-chan string) {
+	ch := make(chan string, capacity)
+	w := io.NewChannelWriter(ch)
+
+	return log.New(w, "", 0), ch
 }

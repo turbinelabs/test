@@ -17,6 +17,7 @@ limitations under the License.
 package io
 
 import (
+	"fmt"
 	"io"
 )
 
@@ -32,5 +33,42 @@ func (_ *noopWriter) Write(p []byte) (int, error) {
 }
 
 func (_ *noopWriter) Close() error {
+	return nil
+}
+
+type channelWriter struct {
+	ch chan<- string
+}
+
+// NewChannelWriter produces a writer that publishes to a string
+// channel. Writes that occur when the channel is full will block.
+func NewChannelWriter(ch chan<- string) io.WriteCloser {
+	return &channelWriter{ch}
+}
+
+func (cw *channelWriter) Write(p []byte) (n int, err error) {
+	defer func() {
+		if x := recover(); x != nil {
+			err = fmt.Errorf("channel writer error: %+v", x)
+		}
+	}()
+
+	if p == nil {
+		cw.ch <- ""
+		return 0, nil
+	}
+
+	cw.ch <- string(p)
+	return len(p), nil
+}
+
+func (cw *channelWriter) Close() (err error) {
+	defer func() {
+		if x := recover(); x != nil {
+			err = fmt.Errorf("channel writer close error: %+v", x)
+		}
+	}()
+
+	close(cw.ch)
 	return nil
 }

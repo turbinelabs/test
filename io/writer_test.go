@@ -35,3 +35,67 @@ func TestNoopWriterCloses(t *testing.T) {
 	w := NewNoopWriter()
 	assert.Nil(t, w.Close())
 }
+
+func readChan(c <-chan string) (string, bool) {
+	select {
+	case s := <-c:
+		return s, true
+	default:
+		return "", false
+	}
+}
+
+func TestChannelWriter(t *testing.T) {
+	c := make(chan string, 3)
+	w := NewChannelWriter(c)
+
+	n, err := w.Write([]byte("abc"))
+	assert.Equal(t, n, 3)
+	assert.Nil(t, err)
+
+	n, err = w.Write([]byte("defghi"))
+	assert.Equal(t, n, 6)
+	assert.Nil(t, err)
+
+	r, ok := readChan(c)
+	assert.True(t, ok)
+	assert.Equal(t, r, "abc")
+
+	r, ok = readChan(c)
+	assert.True(t, ok)
+	assert.Equal(t, r, "defghi")
+
+	_, ok = readChan(c)
+	assert.False(t, ok)
+
+	n, err = w.Write([]byte{})
+	assert.Equal(t, n, 0)
+	assert.Nil(t, err)
+
+	n, err = w.Write(nil)
+	assert.Equal(t, n, 0)
+	assert.Nil(t, err)
+
+	r, ok = readChan(c)
+	assert.True(t, ok)
+	assert.Equal(t, r, "")
+
+	r, ok = readChan(c)
+	assert.True(t, ok)
+	assert.Equal(t, r, "")
+
+	assert.Nil(t, w.Close())
+}
+
+func TestChannelWriterConvertsPanicsToErrors(t *testing.T) {
+	c := make(chan string, 3)
+	w := NewChannelWriter(c)
+	close(c)
+
+	n, err := w.Write([]byte("abc"))
+	assert.Equal(t, n, 0)
+	assert.NonNil(t, err)
+
+	err = w.Close()
+	assert.NonNil(t, err)
+}
