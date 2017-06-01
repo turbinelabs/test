@@ -42,7 +42,7 @@ jobs:
             touch coverage.txt
 
             # Test each package and append coverage profile info to coverage.txt
-            for PKG in $(go list $PKG/... | grep -v /vendor/); do
+            for PKG in $(go list github.com/turbinelabs/$PROJECT/... | grep -v /vendor/); do
                 go test $GO_TEST_RUNNER \
                   -timeout $GO_TEST_TIMEOUT \
                   -covermode=count \
