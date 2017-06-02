@@ -5,7 +5,7 @@ jobs:
       - image: turbinelabs/build-common:0.9.19.7
         cmd: ["/bin/bash"]
 
-    working_directory: "/go/src/github.com/turbinelabs"
+    working_directory: "/go/src/github.com/turbinelabs/test"
 
     environment:
       - PROJECT: github.com/turbinelabs/test
@@ -32,9 +32,7 @@ jobs:
 
       - run:
           name: run tests
-          command: |
-            bash /go/src/$PROJECT/code_coverage.sh \
-              $(go list $PROJECT/... | grep -v /vendor/)
+          command: bash code_coverage.sh $(go list $PROJECT/... | grep -v /vendor/)
 
       - run: bash <(curl -s https://codecov.io/bash)
 
