@@ -5,7 +5,7 @@ jobs:
       - image: turbinelabs/build-common:0.9.19.7
         cmd: ["/bin/bash"]
 
-    working_directory: "~/"
+    working_directory: "/go"
 
     environment:
       - PROJECT: test
