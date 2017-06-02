@@ -14,8 +14,6 @@ jobs:
     steps:
       - checkout
 
-      - run: find /go
-
       - run: env | sort
 
       - run:
@@ -28,11 +26,11 @@ jobs:
             go get github.com/turbinelabs/test/testrunner
             go install github.com/turbinelabs/test/testrunner
 
-      - run: find /go
-
       - run:
           name: run tests
           command: bash code_coverage.sh $(go list $PROJECT/... | grep -v /vendor/)
+
+      - run: find /go/src/$PROJECT
 
       - run: bash <(curl -s https://codecov.io/bash)
 
