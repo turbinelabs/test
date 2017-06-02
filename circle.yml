@@ -9,17 +9,18 @@ jobs:
 
     environment:
       - PROJECT: test
+      - FULL_PROJECT: github.com/turbinelabs/test
       - TEST_RUNNER_OUTPUT: /tmp/test-results/testrunner
 
     steps:
       - checkout:
-          path: $GOPATH/src/github.com/turbinelabs/$PROJECT
+          path: $GOPATH/src/$FULL_PROJECT
 
       - run: env | sort
 
       - run:
           name: install deps
-          command: go get github.com/turbinelabs/$PROJECT/...
+          command: go get $FULL_PROJECT/...
 
       - run:
           name: install testrunner
@@ -29,7 +30,9 @@ jobs:
 
       - run:
           name: run tests
-          command: bash code_coverage.sh $(go list github.com/turbinelabs/$PROJECT/... | grep -v /vendor/)
+          command: |
+            bash $GOPATH/src/$FULL_PROJECT/code_coverage.sh \
+              $(go list $FULL_PROJECT/... | grep -v /vendor/)
               
       - run: bash <(curl -s https://codecov.io/bash)
 
