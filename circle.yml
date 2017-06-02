@@ -14,6 +14,8 @@ jobs:
     steps:
       - checkout
 
+      - run: find /go
+
       - run: env | sort
 
       - run:
@@ -25,6 +27,8 @@ jobs:
           command: |
             go get github.com/turbinelabs/test/testrunner
             go install github.com/turbinelabs/test/testrunner
+
+      - run: find /go
 
       - run:
           name: run tests
