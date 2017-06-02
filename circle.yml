@@ -32,7 +32,7 @@ jobs:
 
       - run: find /go/src/$PROJECT
 
-      - run: bash <(curl -s https://codecov.io/bash)
+      - run: pwd && ls && bash <(curl -s https://codecov.io/bash)
 
       - store_test_results:
           path: /tmp/test-results
