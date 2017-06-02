@@ -31,9 +31,7 @@ jobs:
           name: run tests
           command: bash code_coverage.sh $(go list $PROJECT/... | grep -v /vendor/)
 
-      - run: find /go/src/$PROJECT
-
-      - run: pwd && ls && bash <(curl -s https://codecov.io/bash)
+      - run: bash <(curl -s https://codecov.io/bash)
 
       - store_test_results:
           path: /tmp/test-results
