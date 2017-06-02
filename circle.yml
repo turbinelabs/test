@@ -9,12 +9,13 @@ jobs:
 
     environment:
       - PROJECT: test
+      - $GOPATH: /root/go
       - FULL_PROJECT: github.com/turbinelabs/test
       - TEST_RUNNER_OUTPUT: /tmp/test-results/testrunner
 
     steps:
       - checkout:
-          path: $GOPATH/src/$FULL_PROJECT
+          path: /go/src/$FULL_PROJECT
 
       - run: env | sort
 
