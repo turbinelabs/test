@@ -10,6 +10,7 @@ jobs:
     environment:
       - PROJECT: github.com/turbinelabs/test
       - TEST_RUNNER_OUTPUT: /tmp/test-results/testrunner
+      - TBN_CI_BUILD: 1
 
     steps:
       - checkout
