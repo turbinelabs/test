@@ -9,7 +9,6 @@ jobs:
 
     environment:
       - PROJECT: test
-      - $GOPATH: /root/go
       - FULL_PROJECT: github.com/turbinelabs/test
       - TEST_RUNNER_OUTPUT: /tmp/test-results/testrunner
 
@@ -29,12 +28,10 @@ jobs:
             go get github.com/turbinelabs/test/testrunner
             go install github.com/turbinelabs/test/testrunner
 
-      - run: find $GOPATH/src
-
       - run:
           name: run tests
           command: |
-            bash $GOPATH/src/$FULL_PROJECT/code_coverage.sh \
+            bash /go/src/$FULL_PROJECT/code_coverage.sh \
               $(go list $FULL_PROJECT/... | grep -v /vendor/)
 
       - run: bash <(curl -s https://codecov.io/bash)
