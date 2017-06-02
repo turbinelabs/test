@@ -37,22 +37,25 @@ jobs:
 
             # Initialize error tracking
             ERROR=""
+            COVERAGE_FILE=coverage.txt
+            TMP_FILE=coverage_tmp.txt
 
-            rm -rf coverage.txt
-            touch coverage.txt
+            rm -rf $COVERAGE_FILE
+            touch $COVERAGE_FILE
+            rm -rf $TMP_FILE
 
             # Test each package and append coverage profile info to coverage.txt
             for PKG in $(go list github.com/turbinelabs/$PROJECT/... | grep -v /vendor/); do
+                touch $TMP_FILE
                 go test $GO_TEST_RUNNER \
                   -timeout $GO_TEST_TIMEOUT \
                   -covermode=count \
-                  -coverprofile=coverage_tmp.txt \
+                  -coverprofile=$TMP_FILE \
                   $PKG || ERROR="$ERROR $PKG"
 
-                cat coverage_tmp.txt  | grep -v "/mock_" >> coverage.txt
+                cat $TMP_FILE | grep -v "/mock_" >> $COVERAGE_FILE
+                rm -rf $TMP_FILE
             done
-
-            rm -rf coverage_tmp.txt
 
             if [ ! -z "$ERROR" ]
             then
