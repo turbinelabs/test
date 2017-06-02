@@ -29,38 +29,7 @@ jobs:
 
       - run:
           name: run tests
-          command: |
-            function die() {
-              echo $*
-              exit 1
-            }
-
-            # Initialize error tracking
-            ERROR=""
-            COVERAGE_FILE=coverage.txt
-            TMP_FILE=coverage_tmp.txt
-
-            rm -rf $COVERAGE_FILE
-            touch $COVERAGE_FILE
-            rm -rf $TMP_FILE
-
-            # Test each package and append coverage profile info to coverage.txt
-            for PKG in $(go list github.com/turbinelabs/$PROJECT/... | grep -v /vendor/); do
-                touch $TMP_FILE
-                go test $GO_TEST_RUNNER \
-                  -timeout $GO_TEST_TIMEOUT \
-                  -covermode=count \
-                  -coverprofile=$TMP_FILE \
-                  $PKG || ERROR="$ERROR $PKG"
-
-                cat $TMP_FILE | grep -v "/mock_" >> $COVERAGE_FILE
-                rm -rf $TMP_FILE
-            done
-
-            if [ ! -z "$ERROR" ]
-            then
-                die "Encountered error for one or more packages: $ERROR"
-            fi
+          command: bash code_coverage.sh $(go list github.com/turbinelabs/$PROJECT/... | grep -v /vendor/)
               
       - run: bash <(curl -s https://codecov.io/bash)
 
