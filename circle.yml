@@ -5,15 +5,14 @@ jobs:
       - image: turbinelabs/build-common:0.9.19.7
         cmd: ["/bin/bash"]
 
-    working_directory: "/go"
+    working_directory: "/go/src/github.com/turbinelabs"
 
     environment:
       - PROJECT: github.com/turbinelabs/test
       - TEST_RUNNER_OUTPUT: /tmp/test-results/testrunner
 
     steps:
-      - checkout:
-          path: /go/src/$PROJECT
+      - checkout
 
       - run: env | sort
 
