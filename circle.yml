@@ -8,19 +8,18 @@ jobs:
     working_directory: "/go"
 
     environment:
-      - PROJECT: test
-      - FULL_PROJECT: github.com/turbinelabs/test
+      - PROJECT: github.com/turbinelabs/test
       - TEST_RUNNER_OUTPUT: /tmp/test-results/testrunner
 
     steps:
       - checkout:
-          path: /go/src/$FULL_PROJECT
+          path: /go/src/$PROJECT
 
       - run: env | sort
 
       - run:
           name: install deps
-          command: go get $FULL_PROJECT/...
+          command: go get $PROJECT/...
 
       - run:
           name: install testrunner
@@ -31,8 +30,8 @@ jobs:
       - run:
           name: run tests
           command: |
-            bash /go/src/$FULL_PROJECT/code_coverage.sh \
-              $(go list $FULL_PROJECT/... | grep -v /vendor/)
+            bash /go/src/$PROJECT/code_coverage.sh \
+              $(go list $PROJECT/... | grep -v /vendor/)
 
       - run: bash <(curl -s https://codecov.io/bash)
 
