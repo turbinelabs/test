@@ -17,6 +17,7 @@ limitations under the License.
 package io
 
 import (
+	"errors"
 	"fmt"
 	"io"
 )
@@ -38,6 +39,21 @@ func (_ *noopWriter) Close() error {
 
 type channelWriter struct {
 	ch chan<- string
+}
+
+type failingWriter struct{}
+
+// NewFailingWriter produces a Writer that always fails.
+func NewFailingWriter() io.WriteCloser {
+	return &failingWriter{}
+}
+
+func (_ *failingWriter) Write(p []byte) (int, error) {
+	return 0, fmt.Errorf("failed to write: %s", string(p))
+}
+
+func (_ *failingWriter) Close() error {
+	return errors.New("failed to close")
 }
 
 // NewChannelWriter produces a writer that publishes to a string

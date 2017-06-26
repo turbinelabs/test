@@ -36,6 +36,20 @@ func TestNoopWriterCloses(t *testing.T) {
 	assert.Nil(t, w.Close())
 }
 
+func TestFailingWriterAlwaysFails(t *testing.T) {
+	w := NewFailingWriter()
+	for i := 0; i < 10; i++ {
+		n, err := w.Write([]byte("something"))
+		assert.Equal(t, n, 0)
+		assert.NonNil(t, err)
+	}
+}
+
+func TestFailingWriterFailesToClose(t *testing.T) {
+	w := NewFailingWriter()
+	assert.NonNil(t, w.Close())
+}
+
 func readChan(c <-chan string) (string, bool) {
 	select {
 	case s := <-c:
