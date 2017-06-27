@@ -18,9 +18,11 @@ package assert
 
 import (
 	"fmt"
+	"math"
 	"strings"
 	"sync"
 	"testing"
+	"time"
 )
 
 type complexStruct struct {
@@ -325,28 +327,6 @@ var (
 		)...,
 	)
 )
-
-func TestTracing(t *testing.T) {
-	switch obj := Tracing(t).(type) {
-	case *TracingTB:
-		Equal(obj, obj.TB, t)
-	default:
-		obj.Errorf("got *TracingTB, want %T", obj)
-	}
-}
-
-func TestTracingNoWrap(t *testing.T) {
-	tr := Tracing(t)
-	obj := Tracing(tr)
-	Equal(tr, tr, obj)
-}
-
-func TestTracingNoWrapG(t *testing.T) {
-	Group("Foo", t, func(g *G) {
-		obj := Tracing(g)
-		Equal(g, g, obj)
-	})
-}
 
 func TestNonNil(t *testing.T) {
 	for _, test := range nilnessTestCases {
@@ -830,129 +810,6 @@ func TestEqualWithNonPrintableStings(t *testing.T) {
 	}
 }
 
-func TestGroupPassing(t *testing.T) {
-	tr := Tracing(t)
-	mockT := &mockT{}
-
-	Group("name", mockT, func(g *G) {
-		True(g, true)
-		g.Group("sub-group", func(g *G) {
-			False(g, false)
-		})
-	})
-
-	if len(mockT.log) != 0 {
-		tr.Errorf("Expected no testing.T operations, got: %v", mockT.log)
-	}
-}
-
-func TestGroupFailing(t *testing.T) {
-	tr := Tracing(t)
-	mockT := &mockT{}
-
-	Group("name", mockT, func(g *G) {
-		True(g, false)
-		g.Group("sub-group", func(g *G) {
-			False(g, false)
-		})
-	})
-
-	if len(mockT.log) != 1 || mockT.log[0].op != "Error" {
-		tr.Errorf("got %+v, want single Error op", mockT.log)
-	}
-
-	expectedPrefix := "name: "
-	if !strings.HasPrefix(mockT.log[0].args, expectedPrefix) {
-		tr.Errorf("got '%s', want prefix '%s'", mockT.log[0].args, expectedPrefix)
-	}
-}
-
-func TestNestedGroupFailing(t *testing.T) {
-	tr := Tracing(t)
-	mockT := &mockT{}
-
-	Group("main-group", mockT, func(g *G) {
-		True(g, true)
-		g.Group("sub-group", func(g *G) {
-			True(g, false)
-		})
-	})
-
-	if len(mockT.log) != 1 || mockT.log[0].op != "Error" {
-		tr.Errorf("got %+v, want single Error op", mockT.log)
-	}
-
-	expectedPrefix := "main-group sub-group: "
-	if !strings.HasPrefix(mockT.log[0].args, expectedPrefix) {
-		tr.Errorf("got '%s', want prefix '%s'", mockT.log[0].args, expectedPrefix)
-	}
-}
-
-func TestGroupErrof(t *testing.T) {
-	tr := Tracing(t)
-	mockT := &mockT{}
-
-	Group("main-group", mockT, func(g *G) {
-		g.Errorf("failed %s", "here")
-	})
-
-	if len(mockT.log) != 1 || mockT.log[0].op != "Errorf" {
-		tr.Errorf("got %+v, want single Errorf op", mockT.log)
-	}
-
-	expectedPrefix := "main-group: failed here in "
-	if !strings.HasPrefix(mockT.log[0].args, expectedPrefix) {
-		tr.Errorf("got '%s', want prefix '%s'", mockT.log[0].args, expectedPrefix)
-	}
-}
-
-func TestGroupFatal(t *testing.T) {
-	tr := Tracing(t)
-	mockT := &mockT{}
-
-	Group("main-group", mockT, func(g *G) {
-		g.Fatal("boom")
-		g.Fatalf("boom %s", "two")
-	})
-
-	if len(mockT.log) != 2 {
-		tr.Errorf("expected 2 ops, got %d", len(mockT.log))
-	}
-
-	if mockT.log[0].op != "Fatal" {
-		tr.Errorf("got %+v, want Fatal op", mockT.log[0])
-	}
-	if mockT.log[1].op != "Fatalf" {
-		tr.Errorf("got %+v, want Fatalf op", mockT.log[1])
-	}
-
-	expectedPrefix1 := "main-group: boom in "
-	if !strings.HasPrefix(mockT.log[0].args, expectedPrefix1) {
-		tr.Errorf("got '%s', want prefix '%s'", mockT.log[0].args, expectedPrefix1)
-	}
-
-	expectedPrefix2 := "main-group: boom two in "
-	if !strings.HasPrefix(mockT.log[1].args, expectedPrefix2) {
-		tr.Errorf("got '%s', want prefix '%s'", mockT.log[1].args, expectedPrefix2)
-	}
-}
-
-func TestUngrouped(t *testing.T) {
-	tr := Tracing(t)
-	mockT := &mockT{}
-
-	True(mockT, false)
-
-	if len(mockT.log) != 1 || mockT.log[0].op != "Error" {
-		tr.Errorf("got %+v, want single Error op", mockT.log)
-	}
-
-	expectedPrefix := "got (bool) false, want (bool) true"
-	if !strings.HasPrefix(mockT.log[0].args, expectedPrefix) {
-		tr.Errorf("got '%s', want prefix '%s'", mockT.log[0].args, expectedPrefix)
-	}
-}
-
 func TestEqualWithin(t *testing.T) {
 	tr := Tracing(t)
 	mockT := &mockT{}
@@ -984,5 +841,316 @@ func TestNotEqualWithin(t *testing.T) {
 
 	if !NotEqualWithin(mockT, 1.0, 2.0, 0.5) {
 		tr.Errorf("expected 1.0 to not equal 2.0 within 0.5")
+	}
+}
+
+type comparisonTestCase struct {
+	input, comparator interface{}
+	gt, gte, lt, lte  bool
+}
+
+func TestComparisons(t *testing.T) {
+	testCases := []comparisonTestCase{
+		// int
+		{int(0), int(0), false, true, false, true},
+		{int(0), int(1), false, false, true, true},
+		{int(1), int(0), true, true, false, false},
+		{int(-1), int(-1), false, true, false, true},
+		{int(-1), int(1), false, false, true, true},
+		{int(1), int(-1), true, true, false, false},
+		{int(1), int(1), false, true, false, true},
+		{int(math.MinInt32), int(math.MinInt32), false, true, false, true},
+		{int(math.MinInt32), int(math.MaxInt32), false, false, true, true},
+		{int(math.MaxInt32), int(math.MinInt32), true, true, false, false},
+		{int(math.MaxInt32), int(math.MaxInt32), false, true, false, true},
+
+		// int8
+		{int8(0), int8(0), false, true, false, true},
+		{int8(0), int8(1), false, false, true, true},
+		{int8(1), int8(0), true, true, false, false},
+		{int8(-1), int8(-1), false, true, false, true},
+		{int8(-1), int8(1), false, false, true, true},
+		{int8(1), int8(-1), true, true, false, false},
+		{int8(1), int8(1), false, true, false, true},
+		{int8(math.MinInt8), int8(math.MinInt8), false, true, false, true},
+		{int8(math.MinInt8), int8(math.MaxInt8), false, false, true, true},
+		{int8(math.MaxInt8), int8(math.MinInt8), true, true, false, false},
+		{int8(math.MaxInt8), int8(math.MaxInt8), false, true, false, true},
+
+		// int16
+		{int16(0), int16(0), false, true, false, true},
+		{int16(0), int16(1), false, false, true, true},
+		{int16(1), int16(0), true, true, false, false},
+		{int16(-1), int16(-1), false, true, false, true},
+		{int16(-1), int16(1), false, false, true, true},
+		{int16(1), int16(-1), true, true, false, false},
+		{int16(1), int16(1), false, true, false, true},
+		{int16(math.MinInt16), int16(math.MinInt16), false, true, false, true},
+		{int16(math.MinInt16), int16(math.MaxInt16), false, false, true, true},
+		{int16(math.MaxInt16), int16(math.MinInt16), true, true, false, false},
+		{int16(math.MaxInt16), int16(math.MaxInt16), false, true, false, true},
+
+		// int32
+		{int32(0), int32(0), false, true, false, true},
+		{int32(0), int32(1), false, false, true, true},
+		{int32(1), int32(0), true, true, false, false},
+		{int32(-1), int32(-1), false, true, false, true},
+		{int32(-1), int32(1), false, false, true, true},
+		{int32(1), int32(-1), true, true, false, false},
+		{int32(1), int32(1), false, true, false, true},
+		{int32(math.MinInt32), int32(math.MinInt32), false, true, false, true},
+		{int32(math.MinInt32), int32(math.MaxInt32), false, false, true, true},
+		{int32(math.MaxInt32), int32(math.MinInt32), true, true, false, false},
+		{int32(math.MaxInt32), int32(math.MaxInt32), false, true, false, true},
+
+		// int64
+		{int64(0), int64(0), false, true, false, true},
+		{int64(0), int64(1), false, false, true, true},
+		{int64(1), int64(0), true, true, false, false},
+		{int64(-1), int64(-1), false, true, false, true},
+		{int64(-1), int64(1), false, false, true, true},
+		{int64(1), int64(-1), true, true, false, false},
+		{int64(1), int64(1), false, true, false, true},
+		{int64(math.MinInt64), int64(math.MinInt64), false, true, false, true},
+		{int64(math.MinInt64), int64(math.MaxInt64), false, false, true, true},
+		{int64(math.MaxInt64), int64(math.MinInt64), true, true, false, false},
+		{int64(math.MaxInt64), int64(math.MaxInt64), false, true, false, true},
+
+		// mixed int types
+		{int8(math.MaxInt8), int16(math.MaxInt16), false, false, true, true},
+		{int16(math.MaxInt16), int32(math.MaxInt32), false, false, true, true},
+		{int32(math.MaxInt32), int64(math.MaxInt64), false, false, true, true},
+		{int8(math.MinInt8), int16(math.MinInt16), true, true, false, false},
+		{int16(math.MinInt16), int32(math.MinInt32), true, true, false, false},
+		{int32(math.MinInt32), int64(math.MinInt64), true, true, false, false},
+		{int8(math.MinInt8), int16(math.MinInt8), false, true, false, true},
+		{int16(math.MinInt16), int32(math.MinInt16), false, true, false, true},
+		{int32(math.MinInt32), int64(math.MinInt32), false, true, false, true},
+
+		// uint
+		{uint(0), uint(0), false, true, false, true},
+		{uint(0), uint(1), false, false, true, true},
+		{uint(1), uint(0), true, true, false, false},
+		{uint(1), uint(1), false, true, false, true},
+		{uint(0), uint(math.MaxUint32), false, false, true, true},
+		{uint(math.MaxUint32), uint(0), true, true, false, false},
+		{uint(math.MaxUint32), uint(math.MaxUint32), false, true, false, true},
+
+		// uint8
+		{uint8(0), uint8(0), false, true, false, true},
+		{uint8(0), uint8(1), false, false, true, true},
+		{uint8(1), uint8(0), true, true, false, false},
+		{uint8(1), uint8(1), false, true, false, true},
+		{uint8(0), uint8(math.MaxUint8), false, false, true, true},
+		{uint8(math.MaxUint8), uint8(0), true, true, false, false},
+		{uint8(math.MaxUint8), uint8(math.MaxUint8), false, true, false, true},
+
+		// uint16
+		{uint16(0), uint16(0), false, true, false, true},
+		{uint16(0), uint16(1), false, false, true, true},
+		{uint16(1), uint16(0), true, true, false, false},
+		{uint16(1), uint16(1), false, true, false, true},
+		{uint16(0), uint16(math.MaxUint16), false, false, true, true},
+		{uint16(math.MaxUint16), uint16(0), true, true, false, false},
+		{uint16(math.MaxUint16), uint16(math.MaxUint16), false, true, false, true},
+
+		// uint32
+		{uint32(0), uint32(0), false, true, false, true},
+		{uint32(0), uint32(1), false, false, true, true},
+		{uint32(1), uint32(0), true, true, false, false},
+		{uint32(1), uint32(1), false, true, false, true},
+		{uint32(0), uint32(math.MaxUint32), false, false, true, true},
+		{uint32(math.MaxUint32), uint32(0), true, true, false, false},
+		{uint32(math.MaxUint32), uint32(math.MaxUint32), false, true, false, true},
+
+		// uint64
+		{uint64(0), uint64(0), false, true, false, true},
+		{uint64(0), uint64(1), false, false, true, true},
+		{uint64(1), uint64(0), true, true, false, false},
+		{uint64(1), uint64(1), false, true, false, true},
+		{uint64(0), uint64(math.MaxUint64), false, false, true, true},
+		{uint64(math.MaxUint64), uint64(0), true, true, false, false},
+		{uint64(math.MaxUint64), uint64(math.MaxUint64), false, true, false, true},
+
+		// mixed uint types
+		{uint8(math.MaxUint8), uint16(math.MaxUint16), false, false, true, true},
+		{uint16(math.MaxUint8), uint32(math.MaxUint16), false, false, true, true},
+		{uint32(math.MaxUint8), uint64(math.MaxUint16), false, false, true, true},
+		{uint8(math.MaxUint8), uint16(math.MaxUint8), false, true, false, true},
+		{uint16(math.MaxUint16), uint32(math.MaxUint16), false, true, false, true},
+		{uint32(math.MaxUint32), uint64(math.MaxUint32), false, true, false, true},
+
+		// float32
+		{float32(0.0), float32(0.0), false, true, false, true},
+		{float32(0.0), float32(1.0), false, false, true, true},
+		{float32(1.0), float32(0.0), true, true, false, false},
+		{float32(-1.0), float32(-1.0), false, true, false, true},
+		{float32(-1.0), float32(1.0), false, false, true, true},
+		{float32(1.0), float32(-1.0), true, true, false, false},
+		{float32(1.0), float32(1.0), false, true, false, true},
+		{float32(-math.MaxFloat32), float32(-math.MaxFloat32), false, true, false, true},
+		{float32(-math.MaxFloat32), float32(math.MaxFloat32), false, false, true, true},
+		{float32(math.MaxFloat32), float32(-math.MaxFloat32), true, true, false, false},
+		{float32(math.MaxFloat32), float32(math.MaxFloat32), false, true, false, true},
+
+		// float64
+		{float64(0.0), float64(0.0), false, true, false, true},
+		{float64(0.0), float64(1.0), false, false, true, true},
+		{float64(1.0), float64(0.0), true, true, false, false},
+		{float64(-1.0), float64(-1.0), false, true, false, true},
+		{float64(-1.0), float64(1.0), false, false, true, true},
+		{float64(1.0), float64(-1.0), true, true, false, false},
+		{float64(1.0), float64(1.0), false, true, false, true},
+		{float64(-math.MaxFloat64), float64(-math.MaxFloat64), false, true, false, true},
+		{float64(-math.MaxFloat64), float64(math.MaxFloat64), false, false, true, true},
+		{float64(math.MaxFloat64), float64(-math.MaxFloat64), true, true, false, false},
+		{float64(math.MaxFloat64), float64(math.MaxFloat64), false, true, false, true},
+		{float64(math.MaxFloat64), float64(math.Inf(+1)), false, false, true, true},
+		{float64(-math.MaxFloat64), float64(math.Inf(-1)), true, true, false, false},
+		{float64(math.Inf(+1)), float64(math.MaxFloat64), true, true, false, false},
+		{float64(math.Inf(-1)), float64(-math.MaxFloat64), false, false, true, true},
+		{float64(math.Inf(-1)), float64(math.Inf(-1)), false, true, false, true},
+		{float64(math.Inf(+1)), float64(math.Inf(+1)), false, true, false, true},
+		{float64(math.Inf(-1)), float64(math.Inf(+1)), false, false, true, true},
+		{float64(math.Inf(+1)), float64(math.Inf(-1)), true, true, false, false},
+
+		// mixed float types
+		{float32(-math.MaxFloat32), float64(-math.MaxFloat32), false, true, false, true},
+		{float64(-math.MaxFloat32), float32(-math.MaxFloat32), false, true, false, true},
+		{float32(math.MaxFloat32), float64(math.MaxFloat32), false, true, false, true},
+		{float64(math.MaxFloat32), float32(math.MaxFloat32), false, true, false, true},
+		{float64(math.SmallestNonzeroFloat64), float32(math.SmallestNonzeroFloat32), false, false, true, true},
+		{float32(math.SmallestNonzeroFloat32), float64(math.SmallestNonzeroFloat64), true, true, false, false},
+
+		// mixed int and uint
+		{int(1), uint(1), false, true, false, true},
+		{int(1), uint(0), true, true, false, false},
+		{int(0), uint(1), false, false, true, true},
+		{int(-1), uint(0), false, false, true, true},
+		{uint(1), int(1), false, true, false, true},
+		{uint(0), int(1), false, false, true, true},
+		{uint(1), int(0), true, true, false, false},
+		{uint(0), int(-1), true, true, false, false},
+
+		// mixed int and float
+		{0.5, 0, true, true, false, false},
+		{0, 0.5, false, false, true, true},
+		{1, 1.0, false, true, false, true},
+		{1.0, 1, false, true, false, true},
+		{int64(math.MaxInt64), float64(math.MaxFloat64), false, false, true, true},
+		{int64(-math.MaxInt64), float64(-math.MaxFloat64), true, true, false, false},
+		{float64(math.MaxFloat64), int64(math.MaxInt64), true, true, false, false},
+		{float64(-math.MaxFloat64), int64(-math.MaxInt64), false, false, true, true},
+
+		// mixed uint and float
+		{0.5, uint(0), true, true, false, false},
+		{uint(0), 0.5, false, false, true, true},
+		{uint(1), 1.0, false, true, false, true},
+		{1.0, uint(1), false, true, false, true},
+		{uint64(math.MaxUint64), float64(math.MaxFloat64), false, false, true, true},
+		{float64(math.MaxFloat64), uint64(math.MaxUint64), true, true, false, false},
+
+		// time.Duration, too
+		{time.Millisecond, time.Second, false, false, true, true},
+		{time.Second, time.Millisecond, true, true, false, false},
+		{1, time.Nanosecond, false, true, false, true},
+		{time.Nanosecond, 1, false, true, false, true},
+	}
+
+	tr := Tracing(t)
+	mockT := &mockT{}
+
+	err := func(idx int, cmp string, a, b interface{}, exp bool) {
+		tr.Errorf(
+			"test case %d: expected %v (%T) %s %v (%T) to be %t",
+			idx+1,
+			a,
+			a,
+			cmp,
+			b,
+			b,
+			exp,
+		)
+	}
+
+	for idx, tc := range testCases {
+		fmt.Printf("start %d\n", idx+1)
+		if tc.gt != GreaterThan(mockT, tc.input, tc.comparator) {
+			err(idx, ">", tc.input, tc.comparator, tc.gt)
+		}
+		if tc.gte != GreaterThanEqual(mockT, tc.input, tc.comparator) {
+			err(idx, ">=", tc.input, tc.comparator, tc.gte)
+		}
+		if tc.lt != LessThan(mockT, tc.input, tc.comparator) {
+			err(idx, "<", tc.input, tc.comparator, tc.lt)
+		}
+		if tc.lte != LessThanEqual(mockT, tc.input, tc.comparator) {
+			err(idx, "<=", tc.input, tc.comparator, tc.lte)
+		}
+	}
+}
+
+func TestComparisonWithNonNumerics(t *testing.T) {
+	tr := Tracing(t)
+	mockT := &mockT{}
+
+	if GreaterThan(mockT, 1, "1") {
+		tr.Errorf("expected failure comparing number > string")
+	}
+	if GreaterThanEqual(mockT, 1, "1") {
+		tr.Errorf("expected failure comparing number >= string")
+	}
+	if LessThan(mockT, 1, "1") {
+		tr.Errorf("expected failure comparing number < string")
+	}
+	if LessThanEqual(mockT, 1, "1") {
+		tr.Errorf("expected failure comparing number <= string")
+	}
+
+	if GreaterThan(mockT, "1", 1) {
+		tr.Errorf("expected failure comparing string > number")
+	}
+	if GreaterThanEqual(mockT, "1", 1) {
+		tr.Errorf("expected failure comparing string >= number")
+	}
+	if LessThan(mockT, "1", 1) {
+		tr.Errorf("expected failure comparing string < number")
+	}
+	if LessThanEqual(mockT, "1", 1) {
+		tr.Errorf("expected failure comparing string <= number")
+	}
+}
+
+func TestComparisonWithNaN(t *testing.T) {
+	tr := Tracing(t)
+	mockT := &mockT{}
+
+	if GreaterThan(mockT, 1, float32(math.NaN())) {
+		tr.Errorf("expected failure comparing number > NaN")
+	}
+	if GreaterThan(mockT, 1, math.NaN()) {
+		tr.Errorf("expected failure comparing number > NaN")
+	}
+	if GreaterThanEqual(mockT, 1, math.NaN()) {
+		tr.Errorf("expected failure comparing number >= NaN")
+	}
+	if LessThan(mockT, 1, math.NaN()) {
+		tr.Errorf("expected failure comparing number < NaN")
+	}
+	if LessThanEqual(mockT, 1, math.NaN()) {
+		tr.Errorf("expected failure comparing number <= NaN")
+	}
+
+	if GreaterThan(mockT, math.NaN(), 1) {
+		tr.Errorf("expected failure comparing NaN > number")
+	}
+	if GreaterThanEqual(mockT, math.NaN(), 1) {
+		tr.Errorf("expected failure comparing NaN >= number")
+	}
+	if LessThan(mockT, math.NaN(), 1) {
+		tr.Errorf("expected failure comparing NaN < number")
+	}
+	if LessThanEqual(mockT, math.NaN(), 1) {
+		tr.Errorf("expected failure comparing NaN <= number")
 	}
 }

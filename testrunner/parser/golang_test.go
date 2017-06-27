@@ -283,7 +283,7 @@ func testFailure(t *testing.T, testdata string) {
 		if i == 9 {
 			assert.Equal(t, test.Result, results.Failed)
 			assert.MatchesRegex(t, test.Failure.String(), `got: .*, want .*`)
-			assert.True(t, len(strings.Split(test.Failure.String(), "\n")) > 1)
+			assert.GreaterThan(t, len(strings.Split(test.Failure.String(), "\n")), 1)
 		} else {
 			assert.Equal(t, test.Result, results.Passed)
 			assert.Equal(t, test.Failure.String(), "")
