@@ -212,9 +212,7 @@ func compare(got, cmp interface{}, f func(int) bool) (bool, error) {
 	}
 
 	if gotIVal, isGotIVal := isInt(got); isGotIVal {
-		fmt.Printf("got int: %d\n", gotIVal)
 		if cmpIVal, isCmpIVal := isInt(cmp); isCmpIVal {
-			fmt.Printf("cmp int: %d\n", cmpIVal)
 			return cmpInt(gotIVal, cmpIVal), nil
 		}
 
