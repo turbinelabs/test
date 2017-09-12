@@ -23,6 +23,23 @@ import (
 	"github.com/turbinelabs/test/stack"
 )
 
+var srcPaths = []string{os.Getenv("TBN_FULL_HOME") + "/"}
+var goPath = "/usr/local"
+
+// SetGoInstallationPath can be used to specify an alternate installation path
+// for go, which will be removed from stack trace lines if present as a prefix
+func SetGoInstallationPath(path string) {
+	goPath = path
+}
+
+// AddSrcPath adds a source path which will be removed from stack trace
+// lines if present as a prefix
+func AddSrcPath(path string) {
+	if path != "" && path != "/" {
+		srcPaths = append(srcPaths, path)
+	}
+}
+
 // A TracingTB embeds a testing.TB, overriding the Errorf and Fatalf methods to
 // append stack traces.
 type TracingTB struct {
@@ -44,13 +61,15 @@ func Tracing(t testing.TB) testing.TB {
 }
 
 func stackTrace() string {
-	tbnPath := os.Getenv(tbnHomePath) + "/"
-
-	trace := stack.New()
-	if tbnPath != "/" {
-		trace.TrimPaths(tbnPath, goPath)
+	paths := []string{goPath}
+	for _, p := range srcPaths {
+		if p != "/" {
+			paths = append(paths, p)
+		}
 	}
 
+	trace := stack.New()
+	trace.TrimPaths(paths...)
 	trace.PopFrames("test/")
 
 	return "\n" + trace.Format(true)

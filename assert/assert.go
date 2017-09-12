@@ -32,11 +32,6 @@ import (
 	tbnstr "github.com/turbinelabs/test/strings"
 )
 
-const (
-	goPath      = "/usr/local/"
-	tbnHomePath = "TBN_FULL_HOME"
-)
-
 // Nil asserts the nilness of got.
 func Nil(t testing.TB, got interface{}) bool {
 	if !check.IsNil(got) {
