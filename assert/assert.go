@@ -392,12 +392,8 @@ func ArrayEqual(t testing.TB, got, want interface{}) bool {
 
 		var err string
 		if gotValid && wantValid {
-			if !reflect.DeepEqual(gotIface, wantIface) {
-				err = fmt.Sprintf(
-					"index %d: %s",
-					i,
-					mkErrorMsg(gotIface, wantIface),
-				)
+			if eq, reason := check.DeepEqual(gotIface, wantIface); !eq {
+				err = fmt.Sprintf("index %d: %s", i, reason)
 			}
 		} else if gotValid {
 			err = fmt.Sprintf(
@@ -464,12 +460,8 @@ func MapEqual(t testing.TB, got, want interface{}) bool {
 		gotMapValue := gotValue.MapIndex(wantKey)
 		if gotMapValue.IsValid() {
 			gotIface := gotMapValue.Interface()
-			if !reflect.DeepEqual(gotIface, wantIface) {
-				err = fmt.Sprintf(
-					"key %s: %s",
-					tbnstr.Stringify(wantKey.Interface()),
-					mkErrorMsg(gotIface, wantIface),
-				)
+			if eq, reason := check.DeepEqual(gotIface, wantIface); !eq {
+				err = fmt.Sprintf("key %s: %s", tbnstr.Stringify(wantKey.Interface()), reason)
 			}
 		} else {
 			err = fmt.Sprintf(
@@ -506,22 +498,22 @@ func MapEqual(t testing.TB, got, want interface{}) bool {
 	return true
 }
 
-// DeepEqual asserts reflect.DeepEqual(got, want).
+// DeepEqual asserts check.DeepEqual(got, want) returns true.
 func DeepEqual(t testing.TB, got, want interface{}) bool {
 	if isArrayLike(got) && isArrayLike(want) {
 		return ArrayEqual(t, got, want)
 	} else if isMap(got) && isMap(want) {
 		return MapEqual(t, got, want)
-	} else if !reflect.DeepEqual(got, want) {
-		Tracing(t).Error(mkErrorMsg(got, want))
+	} else if eq, reason := check.DeepEqual(got, want); !eq {
+		Tracing(t).Error(reason)
 		return false
 	}
 	return true
 }
 
-// NotDeepEqual asserts !reflect.DeepEqual(got, want).
+// NotDeepEqual asserts check.DeepEqual(got, want) returns false.
 func NotDeepEqual(t testing.TB, got, want interface{}) bool {
-	if reflect.DeepEqual(got, want) {
+	if eq, _ := check.DeepEqual(got, want); eq {
 		Tracing(t).Error(mkErrorMsgWithExp(got, want, "want !="))
 		return false
 	}

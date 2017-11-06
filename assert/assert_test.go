@@ -296,13 +296,13 @@ var (
 	deepEqualityTestCases = append(
 		deepEqualityTestCasesJsonOk,
 		// these types cannot be json marshalled
-		equalTestCase{"func", function, function, justEqual},
+		equalTestCase{"func", function, function, equalAndDeepEqual},
 	)
 
 	pointerDeepEqualityTestCases = append(
 		pointerDeepEqualityTestCasesJsonOk,
 		// these types cannot be json marshalled
-		equalTestCase{"func", function, function, justEqual},
+		equalTestCase{"func-ptr", function, function, justEqual},
 	)
 
 	justJsonEqualTestCases = []equalTestCase{
@@ -489,7 +489,7 @@ func TestMapEqual(t *testing.T) {
 	}
 	mockT.checkErrorPrefix(
 		tr,
-		"maps not equal:\nkey `a`: got (int) 1, want (int) 99 in ",
+		"maps not equal:\nkey `a`: got is 1, want is 99 in ",
 	)
 
 	mockT.reset()
@@ -1074,7 +1074,6 @@ func TestComparisons(t *testing.T) {
 	}
 
 	for idx, tc := range testCases {
-		fmt.Printf("start %d\n", idx+1)
 		if tc.gt != GreaterThan(mockT, tc.input, tc.comparator) {
 			err(idx, ">", tc.input, tc.comparator, tc.gt)
 		}
