@@ -33,8 +33,9 @@ import (
 )
 
 const (
-	TestServerIdHeader          = "TestServer-ID"
-	TestServerForceResponseCode = "force-response-code"
+	TestServerIdHeader              = "TestServer-ID"
+	TestServerForceResponseCode     = "force-response-code"
+	TestServerEchoHeadersWithPrefix = "echo-headers-with-prefix"
 )
 
 type TestServer struct {
@@ -97,6 +98,18 @@ func (th TestHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		ts.verbosef("succeeding")
 		w.WriteHeader(respCode)
 		fmt.Fprintf(w, "Hi there, I love %s\n", r.URL.Path[1:])
+
+		if prefixes, ok := values[TestServerEchoHeadersWithPrefix]; ok {
+			if len(prefixes) >= 1 {
+				for k, v := range r.Header {
+					for _, prefix := range prefixes {
+						if strings.HasPrefix(strings.ToLower(k), strings.ToLower(prefix)) {
+							fmt.Fprintf(w, "Header %s = %s\n", k, strings.Join(v, ", "))
+						}
+					}
+				}
+			}
+		}
 	}
 }
 

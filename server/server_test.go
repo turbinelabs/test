@@ -18,6 +18,8 @@ package server
 
 import (
 	"flag"
+	"io/ioutil"
+	"net/http/httptest"
 	"testing"
 
 	"github.com/turbinelabs/test/assert"
@@ -59,4 +61,88 @@ func TestFlags(t *testing.T) {
 		_, err := NewTestServerFromFlagSet(&f, tc)
 		assert.NonNil(t, err)
 	}
+}
+
+func TestHandlerReportsPort(t *testing.T) {
+	th := &TestHandler{
+		TestServer: &TestServer{},
+		Port:       "1234",
+	}
+
+	r := httptest.NewRequest("GET", "/foo", nil)
+	w := httptest.NewRecorder()
+
+	th.ServeHTTP(w, r)
+
+	resp := w.Result()
+	assert.Equal(t, resp.StatusCode, 200)
+
+	assert.Equal(t, resp.Header.Get(TestServerIdHeader), "1234")
+
+	body, _ := ioutil.ReadAll(resp.Body)
+	defer resp.Body.Close()
+	assert.Equal(t, string(body), "Hi there, I love foo\n")
+}
+
+func TestHandlerForceResponseCode(t *testing.T) {
+	th := &TestHandler{
+		TestServer: &TestServer{},
+		Port:       "1234",
+	}
+
+	r := httptest.NewRequest("GET", "/foo?force-response-code=599", nil)
+	w := httptest.NewRecorder()
+
+	th.ServeHTTP(w, r)
+
+	resp := w.Result()
+	assert.Equal(t, resp.StatusCode, 599)
+
+	body, _ := ioutil.ReadAll(resp.Body)
+	defer resp.Body.Close()
+	assert.Equal(t, string(body), "Hi there, I love foo\n")
+}
+
+func TestHandlerEchoHeadersWithPrefixOnSuccess(t *testing.T) {
+	th := &TestHandler{
+		TestServer: &TestServer{},
+		Port:       "1234",
+	}
+
+	r := httptest.NewRequest("GET", "/foo?echo-headers-with-prefix=x-", nil)
+	r.Header.Add("x-show-me", "the-money")
+	r.Header.Add("x-show-me", "state")
+	r.Header.Add("y-me", "because")
+
+	w := httptest.NewRecorder()
+
+	th.ServeHTTP(w, r)
+
+	resp := w.Result()
+	assert.Equal(t, resp.StatusCode, 200)
+
+	body, _ := ioutil.ReadAll(resp.Body)
+	defer resp.Body.Close()
+	assert.Equal(t, string(body), "Hi there, I love foo\nHeader X-Show-Me = the-money, state\n")
+}
+
+func TestHandlerIgnoreEchoHeadersWithPrefixOnFailure(t *testing.T) {
+	th := &TestHandler{
+		TestServer: &TestServer{errorRate: 100.0},
+		Port:       "1234",
+	}
+
+	r := httptest.NewRequest("GET", "/foo?echo-headers-with-prefix=x-", nil)
+	r.Header.Add("x-show-me", "the-money")
+
+	w := httptest.NewRecorder()
+
+	th.ServeHTTP(w, r)
+
+	resp := w.Result()
+	assert.Equal(t, resp.StatusCode, 503)
+
+	body, _ := ioutil.ReadAll(resp.Body)
+	defer resp.Body.Close()
+	assert.Equal(t, string(body), "oopsies\n")
 }
