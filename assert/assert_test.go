@@ -103,66 +103,6 @@ func (n nilTestCase) run(
 	}
 }
 
-type logEntry struct {
-	op   string
-	args string
-}
-
-type mockT struct {
-	testing.TB
-
-	log []logEntry
-}
-
-func (t *mockT) record(op string, args string) {
-	entry := logEntry{op, args}
-	if t.log == nil {
-		t.log = make([]logEntry, 1)
-		t.log[0] = entry
-	} else {
-		t.log = append(t.log, entry)
-	}
-}
-
-func (t *mockT) reset() {
-	t.log = nil
-}
-
-func (t *mockT) checkErrorPrefix(realT testing.TB, prefix string) {
-	if len(t.log) != 1 {
-		realT.Errorf("expected single error, got '%+v'", t.log)
-	}
-
-	switch t.log[0].op {
-	case "Error", "Errorf":
-		if !strings.HasPrefix(t.log[0].args, prefix) {
-			realT.Errorf("got %q, expected prefix %q", t.log[0].args, prefix)
-		}
-	default:
-		realT.Errorf("expected Error or Error op, got '%+v'", t.log[0])
-	}
-}
-
-// For any testing.TB method invoked on mockT, you'll need to
-// override the version inherited from embedding a testing.TB in
-// mockT. (The embedded versions of the methods will fail due to the
-// TB field being nil.)
-func (t *mockT) Errorf(format string, args ...interface{}) {
-	t.record("Errorf", fmt.Sprintf(format, args...))
-}
-
-func (t *mockT) Error(args ...interface{}) {
-	t.record("Error", strings.TrimRight(fmt.Sprintln(args...), "\n"))
-}
-
-func (t *mockT) Fatalf(format string, args ...interface{}) {
-	t.record("Fatalf", fmt.Sprintf(format, args...))
-}
-
-func (t *mockT) Fatal(args ...interface{}) {
-	t.record("Fatal", strings.TrimRight(fmt.Sprintln(args...), "\n"))
-}
-
 type moreComplexStruct struct {
 	A string               `json:"a"`
 	C lessComplexSubstruct `json:"c"`
@@ -465,7 +405,7 @@ func TestMapEqual(t *testing.T) {
 	m5 := map[string]int{"a": 1, "b": 2}
 
 	tr := Tracing(t)
-	mockT := &mockT{}
+	mockT := &MockT{}
 
 	if MapEqual(mockT, m1, "a") || MapEqual(mockT, "a", m1) {
 		tr.Errorf("expected MapEqual to fail on non-arrays")
@@ -483,31 +423,40 @@ func TestMapEqual(t *testing.T) {
 		tr.Errorf("expected '%+v' to equal '%+v'", m2, m3)
 	}
 
-	mockT.reset()
+	mockT.Reset()
 	if MapEqual(mockT, m3, m4) {
 		tr.Errorf("expected '%+v' not to equal '%+v'", m3, m4)
 	}
-	mockT.checkErrorPrefix(
+	mockT.CheckPredicates(
 		tr,
-		"maps not equal:\nkey `a`: got is 1, want is 99 in ",
+		Match(
+			ErrorOp(),
+			PrefixedArgs("maps not equal:\nkey `a`: got is 1, want is 99 in "),
+		),
 	)
 
-	mockT.reset()
+	mockT.Reset()
 	if MapEqual(mockT, m1, m5) {
 		tr.Errorf("expected '%+v' not to equal '%+v'", m1, m5)
 	}
-	mockT.checkErrorPrefix(
+	mockT.CheckPredicates(
 		tr,
-		"maps not equal:\nmissing key `b`: wanted value: (int) 2 in ",
+		Match(
+			ErrorOp(),
+			PrefixedArgs("maps not equal:\nmissing key `b`: wanted value: (int) 2 in "),
+		),
 	)
 
-	mockT.reset()
+	mockT.Reset()
 	if MapEqual(mockT, m5, m1) {
 		tr.Errorf("expected '%+v' not to equal '%+v'", m5, m1)
 	}
-	mockT.checkErrorPrefix(
+	mockT.CheckPredicates(
 		tr,
-		"maps not equal:\nextra key `b`: unwanted value: (int) 2 in ",
+		Match(
+			ErrorOp(),
+			PrefixedArgs("maps not equal:\nextra key `b`: unwanted value: (int) 2 in "),
+		),
 	)
 }
 
@@ -713,49 +662,48 @@ func TestPanic(t *testing.T) {
 	ok := func() int { return 1 }
 	panicky := func() string { panic("oh noes") }
 
-	mt := &mockT{}
+	mt := &MockT{}
 	if Panic(mt, ok) {
 		tr.Errorf("expected Panic to return false")
 	}
 
-	expectedPrefix := "expected panic in "
-	if len(mt.log) != 1 || mt.log[0].op != "Error" || !strings.HasPrefix(mt.log[0].args, expectedPrefix) {
-		tr.Errorf("got %+v, want single Error op starting with %q", mt.log, expectedPrefix)
-	}
+	mt.CheckPredicates(
+		tr,
+		Match(
+			ErrorOp(),
+			PrefixedArgs("expected panic in "),
+		),
+	)
 
-	mt = &mockT{}
+	mt = &MockT{}
 	if !Panic(mt, panicky) {
 		tr.Errorf("expected Panic to return true")
 	}
-	if len(mt.log) != 0 {
-		tr.Errorf("Expected no testing.T operations, got: %v", mt.log)
-	}
+	mt.CheckSuccess(tr)
 
-	mt = &mockT{}
+	mt = &MockT{}
 	if Panic(mt, "what is this even?") {
 		tr.Errorf("expected Panic to return false")
 	}
-	if len(mt.log) != 1 ||
-		mt.log[0].op != "Errorf" ||
-		!strings.Contains(mt.log[0].args, "must be a function") {
-		tr.Errorf(
-			"got %+v, wanted single Errorf op containing 'must be a function'",
-			mt.log,
-		)
-	}
+	mt.CheckPredicates(
+		tr,
+		Match(
+			ErrorOp(),
+			ArgsContain("must be a function"),
+		),
+	)
 
-	mt = &mockT{}
+	mt = &MockT{}
 	if Panic(mt, func(i int) int { return i + 1 }) {
 		tr.Errorf("expected Panic to return false")
 	}
-	if len(mt.log) != 1 ||
-		mt.log[0].op != "Errorf" ||
-		!strings.Contains(mt.log[0].args, "may not take arguments") {
-		tr.Errorf(
-			"got %+v, wanted single Errorf op containing 'not not take arguments'",
-			mt.log,
-		)
-	}
+	mt.CheckPredicates(
+		tr,
+		Match(
+			ErrorOp(),
+			ArgsContain("may not take arguments"),
+		),
+	)
 }
 
 func TestSameInstanceNonPointers(t *testing.T) {
@@ -790,7 +738,7 @@ func TestSameInstanceNonPointers(t *testing.T) {
 
 func TestEqualWithNonPrintableStings(t *testing.T) {
 	tr := Tracing(t)
-	mockT := &mockT{}
+	mockT := &MockT{}
 
 	a := "xyz"
 	b := "xyz\x00"
@@ -799,20 +747,18 @@ func TestEqualWithNonPrintableStings(t *testing.T) {
 		tr.Errorf("expected null-terminated inequality")
 	}
 
-	if len(mockT.log) != 1 {
-		tr.Errorf("expected a single log entry, got: %+v", mockT.log)
-	}
-
-	log := mockT.log[0]
-	expectedPrefix := "got (string) `xyz`, want (string) \"xyz\\x00\" in "
-	if !strings.HasPrefix(log.args, expectedPrefix) {
-		tr.Errorf("got %q, expected prefix %q", log.args, expectedPrefix)
-	}
+	mockT.CheckPredicates(
+		tr,
+		Match(
+			ErrorOp(),
+			PrefixedArgs("got (string) `xyz`, want (string) \"xyz\\x00\" in "),
+		),
+	)
 }
 
 func TestEqualWithin(t *testing.T) {
 	tr := Tracing(t)
-	mockT := &mockT{}
+	mockT := &MockT{}
 
 	if !EqualWithin(mockT, 0, 0, 0) {
 		tr.Errorf("expected 0.0 to equal 0.0 within 0.0")
@@ -829,7 +775,7 @@ func TestEqualWithin(t *testing.T) {
 
 func TestNotEqualWithin(t *testing.T) {
 	tr := Tracing(t)
-	mockT := &mockT{}
+	mockT := &MockT{}
 
 	if NotEqualWithin(mockT, 0, 0, 0) {
 		tr.Errorf("expected 0.0 to equal 0.0 within 0.0")
@@ -1058,7 +1004,7 @@ func TestComparisons(t *testing.T) {
 	}
 
 	tr := Tracing(t)
-	mockT := &mockT{}
+	mockT := &MockT{}
 
 	err := func(idx int, cmp string, a, b interface{}, exp bool) {
 		tr.Errorf(
@@ -1091,7 +1037,7 @@ func TestComparisons(t *testing.T) {
 
 func TestComparisonWithNonNumerics(t *testing.T) {
 	tr := Tracing(t)
-	mockT := &mockT{}
+	mockT := &MockT{}
 
 	if GreaterThan(mockT, 1, "1") {
 		tr.Errorf("expected failure comparing number > string")
@@ -1122,7 +1068,7 @@ func TestComparisonWithNonNumerics(t *testing.T) {
 
 func TestComparisonWithNaN(t *testing.T) {
 	tr := Tracing(t)
-	mockT := &mockT{}
+	mockT := &MockT{}
 
 	if GreaterThan(mockT, 1, float32(math.NaN())) {
 		tr.Errorf("expected failure comparing number > NaN")

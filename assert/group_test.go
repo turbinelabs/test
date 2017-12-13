@@ -17,29 +17,27 @@ limitations under the License.
 package assert
 
 import (
-	"strings"
 	"testing"
 )
 
 func TestUngrouped(t *testing.T) {
 	tr := Tracing(t)
-	mockT := &mockT{}
+	mockT := &MockT{}
 
 	True(mockT, false)
 
-	if len(mockT.log) != 1 || mockT.log[0].op != "Error" {
-		tr.Errorf("got %+v, want single Error op", mockT.log)
-	}
-
-	expectedPrefix := "got (bool) false, want (bool) true"
-	if !strings.HasPrefix(mockT.log[0].args, expectedPrefix) {
-		tr.Errorf("got '%s', want prefix '%s'", mockT.log[0].args, expectedPrefix)
-	}
+	mockT.CheckPredicates(
+		tr,
+		Match(
+			ErrorOp(),
+			PrefixedArgs("got (bool) false, want (bool) true"),
+		),
+	)
 }
 
 func TestGroupPassing(t *testing.T) {
 	tr := Tracing(t)
-	mockT := &mockT{}
+	mockT := &MockT{}
 
 	Group("name", mockT, func(g *G) {
 		True(g, true)
@@ -48,14 +46,12 @@ func TestGroupPassing(t *testing.T) {
 		})
 	})
 
-	if len(mockT.log) != 0 {
-		tr.Errorf("Expected no testing.T operations, got: %v", mockT.log)
-	}
+	mockT.CheckSuccess(tr)
 }
 
 func TestGroupFailing(t *testing.T) {
 	tr := Tracing(t)
-	mockT := &mockT{}
+	mockT := &MockT{}
 
 	Group("name", mockT, func(g *G) {
 		True(g, false)
@@ -64,19 +60,18 @@ func TestGroupFailing(t *testing.T) {
 		})
 	})
 
-	if len(mockT.log) != 1 || mockT.log[0].op != "Error" {
-		tr.Errorf("got %+v, want single Error op", mockT.log)
-	}
-
-	expectedPrefix := "name: "
-	if !strings.HasPrefix(mockT.log[0].args, expectedPrefix) {
-		tr.Errorf("got '%s', want prefix '%s'", mockT.log[0].args, expectedPrefix)
-	}
+	mockT.CheckPredicates(
+		tr,
+		Match(
+			ErrorOp(),
+			PrefixedArgs("name: "),
+		),
+	)
 }
 
 func TestNestedGroupFailing(t *testing.T) {
 	tr := Tracing(t)
-	mockT := &mockT{}
+	mockT := &MockT{}
 
 	Group("main-group", mockT, func(g *G) {
 		True(g, true)
@@ -85,61 +80,44 @@ func TestNestedGroupFailing(t *testing.T) {
 		})
 	})
 
-	if len(mockT.log) != 1 || mockT.log[0].op != "Error" {
-		tr.Errorf("got %+v, want single Error op", mockT.log)
-	}
-
-	expectedPrefix := "main-group sub-group: "
-	if !strings.HasPrefix(mockT.log[0].args, expectedPrefix) {
-		tr.Errorf("got '%s', want prefix '%s'", mockT.log[0].args, expectedPrefix)
-	}
+	mockT.CheckPredicates(
+		tr,
+		Match(
+			ErrorOp(),
+			PrefixedArgs("main-group sub-group: "),
+		),
+	)
 }
 
 func TestGroupErrof(t *testing.T) {
 	tr := Tracing(t)
-	mockT := &mockT{}
+	mockT := &MockT{}
 
 	Group("main-group", mockT, func(g *G) {
 		g.Errorf("failed %s", "here")
 	})
 
-	if len(mockT.log) != 1 || mockT.log[0].op != "Errorf" {
-		tr.Errorf("got %+v, want single Errorf op", mockT.log)
-	}
-
-	expectedPrefix := "main-group: failed here in "
-	if !strings.HasPrefix(mockT.log[0].args, expectedPrefix) {
-		tr.Errorf("got '%s', want prefix '%s'", mockT.log[0].args, expectedPrefix)
-	}
+	mockT.CheckPredicates(
+		tr,
+		Match(
+			ErrorOp(),
+			PrefixedArgs("main-group: failed here in "),
+		),
+	)
 }
 
 func TestGroupFatal(t *testing.T) {
 	tr := Tracing(t)
-	mockT := &mockT{}
+	mockT := &MockT{}
 
 	Group("main-group", mockT, func(g *G) {
 		g.Fatal("boom")
 		g.Fatalf("boom %s", "two")
 	})
 
-	if len(mockT.log) != 2 {
-		tr.Errorf("expected 2 ops, got %d", len(mockT.log))
-	}
-
-	if mockT.log[0].op != "Fatal" {
-		tr.Errorf("got %+v, want Fatal op", mockT.log[0])
-	}
-	if mockT.log[1].op != "Fatalf" {
-		tr.Errorf("got %+v, want Fatalf op", mockT.log[1])
-	}
-
-	expectedPrefix1 := "main-group: boom in "
-	if !strings.HasPrefix(mockT.log[0].args, expectedPrefix1) {
-		tr.Errorf("got '%s', want prefix '%s'", mockT.log[0].args, expectedPrefix1)
-	}
-
-	expectedPrefix2 := "main-group: boom two in "
-	if !strings.HasPrefix(mockT.log[1].args, expectedPrefix2) {
-		tr.Errorf("got '%s', want prefix '%s'", mockT.log[1].args, expectedPrefix2)
-	}
+	mockT.CheckPredicates(
+		tr,
+		Match(ExactOp("Fatal"), PrefixedArgs("main-group: boom in ")),
+		Match(ExactOp("Fatalf"), PrefixedArgs("main-group: boom two in ")),
+	)
 }
