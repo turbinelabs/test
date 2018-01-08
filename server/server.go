@@ -19,98 +19,37 @@ limitations under the License.
 package server
 
 import (
-	"flag"
+	"errors"
 	"fmt"
 	"log"
 	"math/rand"
 	"net"
 	"net/http"
 	"os"
-	"strconv"
-	"strings"
 	"sync"
 	"time"
 )
 
-const (
-	TestServerIdHeader              = "TestServer-ID"
-	TestServerForceResponseCode     = "force-response-code"
-	TestServerEchoHeadersWithPrefix = "echo-headers-with-prefix"
-)
+type closerChan chan struct{}
 
+// TestServer represents one or more HTTP listeners.
 type TestServer struct {
 	ports         []string
+	listenerIDs   []string
 	errorRate     float64
-	latencyMean   float64
-	latencyStdDev float64
+	latencyMean   time.Duration
+	latencyStdDev time.Duration
 	verbose       bool
+	rand          *rand.Rand
 }
 
-type TestHandler struct {
-	TestServer *TestServer
-	Port       string
-}
-
+// TestServerControl provides the ability to control a TestServer. It
+// provides a mechanism for stopping the server and awaiting the
+// termination of all listeners.
 type TestServerControl struct {
-	closer    chan<- bool
+	idPortMap map[string]int
+	closer    closerChan
 	waitgroup *sync.WaitGroup
-}
-
-// TestHandler functions
-
-func (th TestHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	ts := th.TestServer
-
-	w.Header().Set(TestServerIdHeader, th.Port)
-
-	if ts.latencyMean > 0.0 {
-		normLatency := (rand.NormFloat64() * ts.latencyStdDev) + ts.latencyMean
-		if normLatency > 0 {
-			ts.verbosef("sleeping for %f", normLatency)
-			time.Sleep(time.Duration(normLatency) * time.Millisecond)
-		}
-	}
-
-	respCode := -1
-	values := r.URL.Query()
-
-	if va, ok := values[TestServerForceResponseCode]; ok {
-		if len(va) >= 1 {
-			c, err := strconv.Atoi(va[0])
-			if err != nil {
-				log.Printf("Could not parse %v arg %q", TestServerForceResponseCode, va[0])
-			} else {
-				respCode = c
-			}
-		}
-	}
-
-	if (rand.Float64() * 100.0) < ts.errorRate {
-		ts.verbosef("failing")
-		if respCode == -1 {
-			respCode = 503
-		}
-		http.Error(w, "oopsies", respCode)
-	} else {
-		if respCode == -1 {
-			respCode = 200
-		}
-		ts.verbosef("succeeding")
-		w.WriteHeader(respCode)
-		fmt.Fprintf(w, "Hi there, I love %s\n", r.URL.Path[1:])
-
-		if prefixes, ok := values[TestServerEchoHeadersWithPrefix]; ok {
-			if len(prefixes) >= 1 {
-				for k, v := range r.Header {
-					for _, prefix := range prefixes {
-						if strings.HasPrefix(strings.ToLower(k), strings.ToLower(prefix)) {
-							fmt.Fprintf(w, "Header %s = %s\n", k, strings.Join(v, ", "))
-						}
-					}
-				}
-			}
-		}
-	}
 }
 
 // TestServer functions
@@ -125,7 +64,12 @@ func (ts *TestServer) verbosef(format string, v ...interface{}) {
 	}
 }
 
-func (ts *TestServer) serveListener(addr string, listener net.Listener, wg *sync.WaitGroup) {
+func (ts *TestServer) serveListener(
+	addr,
+	listenerID string,
+	listener net.Listener,
+	wg *sync.WaitGroup,
+) {
 	defer func() {
 		ts.logf("signaling completion for %s", addr)
 		wg.Done()
@@ -133,7 +77,7 @@ func (ts *TestServer) serveListener(addr string, listener net.Listener, wg *sync
 
 	serveMux := http.NewServeMux()
 	server := http.Server{Addr: addr, Handler: serveMux}
-	th := TestHandler{ts, addr}
+	th := TestHandler{ts, listenerID}
 	serveMux.Handle("/", th)
 
 	err := server.Serve(listener)
@@ -143,7 +87,7 @@ func (ts *TestServer) serveListener(addr string, listener net.Listener, wg *sync
 	ts.logf("server on port %s exited\n", addr)
 }
 
-func (ts *TestServer) closeListenerOnMessage(closer <-chan bool, listener net.Listener) {
+func (ts *TestServer) closeListenerOnMessage(closer closerChan, listener net.Listener) {
 	ok := true
 	for ok {
 		_, ok = <-closer
@@ -152,14 +96,24 @@ func (ts *TestServer) closeListenerOnMessage(closer <-chan bool, listener net.Li
 	listener.Close()
 }
 
+// ServeAsync starts the configured listeners for this TestServer and
+// returns a TestServerControl which may be used to stop the listeners
+// at a later point in time.
 func (ts *TestServer) ServeAsync() *TestServerControl {
-	var wg sync.WaitGroup
-	closer := make(chan bool)
-	wg.Add(len(ts.ports))
-	for _, port := range ts.ports {
-		ts.logf("launching server on port %s\n", port)
+	if len(ts.ports) != len(ts.listenerIDs) {
+		// Only tests should be able to cause this since these fields are not public.
+		panic("failed invariant: list of ports and listener IDs must be the same length")
+	}
 
+	closer := closerChan(make(chan struct{}))
+
+	wg := &sync.WaitGroup{}
+	wg.Add(len(ts.ports))
+
+	idPortMap := map[string]int{}
+	for idx, port := range ts.ports {
 		addr := ":" + port
+		listenerID := ts.listenerIDs[idx]
 
 		listener, err := net.Listen("tcp", addr)
 		if err != nil {
@@ -168,81 +122,118 @@ func (ts *TestServer) ServeAsync() *TestServerControl {
 			continue
 		}
 
-		go ts.serveListener(addr, listener, &wg)
+		// Port may have been dynamically selected, so retrieve it.
+		resolvedPort := listener.Addr().(*net.TCPAddr).Port
+		idPortMap[listenerID] = resolvedPort
+
+		addr = fmt.Sprintf(":%d", resolvedPort)
+		ts.logf("launching server on port %s\n", addr)
+
+		go ts.serveListener(addr, listenerID, listener, wg)
 		go ts.closeListenerOnMessage(closer, listener)
 	}
 	ts.logf("servers started")
 
-	return &TestServerControl{closer, &wg}
-}
-
-func (ts *TestServer) Serve() {
-	ts.ServeAsync().Await()
+	return &TestServerControl{idPortMap, closer, wg}
 }
 
 // TestServerControl functions
 
-// Stops the listeners and waits for the associated goroutines to exit
+// Stop halts the listeners and waits for their associated goroutines to exit.
 func (tsc *TestServerControl) Stop() {
 	log.Printf("stopping servers")
 	close(tsc.closer)
 	tsc.Await()
 }
 
+// Await waits for all listeners to exit.
 func (tsc *TestServerControl) Await() {
 	log.Printf("waiting for servers to stop")
 	tsc.waitgroup.Wait()
 }
 
+// IDPortMap returns a map of the ports used by the TestServer to
+// their respective TestServerIDHeader values. For hard-coded ports
+// the ID is always the port prefixed with a colon.
+func (tsc *TestServerControl) IDPortMap() map[string]int {
+	return tsc.idPortMap
+}
+
+// NewTestServer creates a new TestServer with the given
+// configuration. The error rate is expressed as a percentage and must
+// be between 0 and 100, inclusive. Duplicate ports are ignored.
 func NewTestServer(
 	ports []string,
 	errorRate float64,
-	latencyMean float64,
-	latencyStdDev float64,
+	latencyMean time.Duration,
+	latencyStdDev time.Duration,
 	verbose bool,
 ) (*TestServer, error) {
-	rand.Seed(time.Now().UnixNano() ^ (int64(os.Getpid()) << 30))
-
 	if errorRate < 0 || errorRate > 100 {
-		return nil, fmt.Errorf("errorRate should be between 0 and 100")
+		return nil, fmt.Errorf("error rate must be between 0 and 100")
 	}
 
-	if latencyMean < 0 {
-		return nil, fmt.Errorf("latencyMean should be non-negative")
-	}
-
-	if latencyStdDev < 0 {
-		return nil, fmt.Errorf("latencyStdDev should be non-negative")
-	}
-
-	m := map[string]bool{}
-	// dedup in place; after the loop we're left with a slice all unique values at the front
+	// dedupe in place: after the loop we're left with a slice all unique values at the front
 	// in their original order so we re-slice to len(m) to get the unique values
+	m := map[string]struct{}{}
 	for _, v := range ports {
 		if _, seen := m[v]; !seen {
 			ports[len(m)] = v
-			m[v] = true
+			m[v] = struct{}{}
 		}
 	}
 	ports = ports[:len(m)]
+	listenerIDs := make([]string, len(ports))
+	for i, port := range ports {
+		listenerIDs[i] = ":" + port
+	}
 
-	ts := TestServer{ports, errorRate, latencyMean, latencyStdDev, verbose}
+	ts := TestServer{ports, listenerIDs, errorRate, latencyMean, latencyStdDev, verbose, mkRand()}
 
 	return &ts, nil
 }
 
-func NewTestServerFromFlagSet(f *flag.FlagSet, args []string) (*TestServer, error) {
-	portsFlag := f.String("ports", "8889", "comma separated list of ports to listen on")
-	errorRateFlag := f.Float64("error-rate", 0.01, "error rate as a percentage (100.0 = pure error)")
-	latencyMeanFlag := f.Float64("latency-mean", 4, "mean latency in milliseconds")
-	latencyStdDevFlag := f.Float64("latency-stddev", 1, "latency standard deviation in milliseconds")
-	verboseFlag := f.Bool("verbose", false, "enable verbose logging")
-	f.Parse(args)
+// NewTestServerWithDynamicPorts creates a new TestServer with the
+// given configuration. The error rate is expressed as a percentage
+// and must be between 0 and 100, inclusive. A port is selected for
+// each listener dynamically. ListenerIDs must be unique. Responses
+// from a given port will contain the TestServerIDHeader with the
+// corresponding value from listenerIDs. A mapping of IDs to their
+// ports can be obtained via the TestServerControl object returned
+// from ServeAsync.
+func NewTestServerWithDynamicPorts(
+	listenerIDs []string,
+	errorRate float64,
+	latencyMean time.Duration,
+	latencyStdDev time.Duration,
+	verbose bool,
+) (*TestServer, error) {
+	if len(listenerIDs) == 0 {
+		return nil, errors.New("must specify at least one listener ID")
+	}
 
-	return NewTestServer(
-		strings.Split(*portsFlag, ","),
-		*errorRateFlag,
-		*latencyMeanFlag,
-		*latencyStdDevFlag,
-		*verboseFlag)
+	seenMap := map[string]struct{}{}
+	for _, id := range listenerIDs {
+		if _, seen := seenMap[id]; seen {
+			return nil, errors.New("listener IDs must be unique")
+		}
+		seenMap[id] = struct{}{}
+	}
+
+	if errorRate < 0 || errorRate > 100 {
+		return nil, errors.New("error rate must be between 0 and 100")
+	}
+
+	ports := make([]string, len(listenerIDs))
+	for i := range ports {
+		ports[i] = "0"
+	}
+
+	ts := TestServer{ports, listenerIDs, errorRate, latencyMean, latencyStdDev, verbose, mkRand()}
+
+	return &ts, nil
+}
+
+func mkRand() *rand.Rand {
+	return rand.New(rand.NewSource(time.Now().UnixNano() ^ (int64(os.Getpid()) << 30)))
 }

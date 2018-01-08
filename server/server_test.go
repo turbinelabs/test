@@ -17,132 +17,103 @@ limitations under the License.
 package server
 
 import (
-	"flag"
+	"fmt"
 	"io/ioutil"
-	"net/http/httptest"
+	"net/http"
 	"testing"
+	"time"
 
 	"github.com/turbinelabs/test/assert"
 )
 
-type goodTestCase struct {
-	args []string
-	test func(TestServer) bool
+func TestNewTestServer(t *testing.T) {
+	ts, err := NewTestServer(
+		[]string{"1234", "1234", "1235", "1234", "1236", "1235"},
+		0.0,
+		0,
+		0,
+		false,
+	)
+	assert.Nil(t, err)
+	assert.ArrayEqual(t, ts.ports, []string{"1234", "1235", "1236"})
+
+	ts, err = NewTestServer(
+		[]string{"9999", "1000", "9999"},
+		50.0,
+		time.Second,
+		time.Millisecond,
+		true,
+	)
+	assert.Nil(t, err)
+	assert.ArrayEqual(t, ts.ports, []string{"9999", "1000"})
+	assert.Equal(t, ts.errorRate, 50.0)
+	assert.Equal(t, ts.latencyMean, time.Second)
+	assert.Equal(t, ts.latencyStdDev, time.Millisecond)
+	assert.True(t, ts.verbose)
+	assert.NonNil(t, ts.rand)
+
+	ts, err = NewTestServer([]string{"1234"}, -1.0, 0, 0, false)
+	assert.ErrorContains(t, err, "error rate must be between 0 and 100")
+	assert.Nil(t, ts)
 }
 
-func TestFlags(t *testing.T) {
-	goodCases := []goodTestCase{
-		{[]string{"--ports", "1234,1234,1235,1234,1236,1235"}, func(ts TestServer) bool {
-			return len(ts.ports) == 3 && ts.ports[0] == "1234" && ts.ports[1] == "1235" && ts.ports[2] == "1236"
-		}},
-		{[]string{"--error-rate", "4.1"}, func(ts TestServer) bool { return ts.errorRate == 4.1 }},
-		{[]string{"--latency-mean", "4.2"}, func(ts TestServer) bool { return ts.latencyMean == 4.2 }},
-		{[]string{"--latency-stddev", "4.3"}, func(ts TestServer) bool { return ts.latencyStdDev == 4.3 }},
-	}
+func TestNewTestServerWithDynamicPorts(t *testing.T) {
+	ts, err := NewTestServerWithDynamicPorts([]string{"a", "b", "c"}, 0.0, 0, 0, false)
+	assert.Nil(t, err)
+	assert.ArrayEqual(t, ts.ports, []string{"0", "0", "0"})
+	assert.ArrayEqual(t, ts.listenerIDs, []string{"a", "b", "c"})
 
-	badCases := [][]string{
-		{"--error-rate", "-1"},
-		{"--error-rate", "100.1"},
-		{"--latency-mean", "-1"},
-		{"--latency-stddev", "-1"},
-	}
+	ts, err = NewTestServerWithDynamicPorts(
+		[]string{"a", "b"},
+		50.0,
+		time.Second,
+		time.Millisecond,
+		true,
+	)
+	assert.Nil(t, err)
+	assert.ArrayEqual(t, ts.ports, []string{"0", "0"})
+	assert.ArrayEqual(t, ts.listenerIDs, []string{"a", "b"})
+	assert.Equal(t, ts.errorRate, 50.0)
+	assert.Equal(t, ts.latencyMean, time.Second)
+	assert.Equal(t, ts.latencyStdDev, time.Millisecond)
+	assert.True(t, ts.verbose)
+	assert.NonNil(t, ts.rand)
 
-	for _, tc := range goodCases {
-		var f flag.FlagSet
-		res, err := NewTestServerFromFlagSet(&f, tc.args)
-		assert.Nil(t, err)
-		if !tc.test(*res) {
-			t.Errorf("Bad result for %v: %v", tc.args, res)
-		}
-	}
+	ts, err = NewTestServerWithDynamicPorts([]string{}, 0.0, 0, 0, false)
+	assert.ErrorContains(t, err, "must specify at least one listener ID")
+	assert.Nil(t, ts)
 
-	for _, tc := range badCases {
-		var f flag.FlagSet
-		_, err := NewTestServerFromFlagSet(&f, tc)
-		assert.NonNil(t, err)
-	}
+	ts, err = NewTestServerWithDynamicPorts([]string{"x", "x"}, 0.0, 0, 0, false)
+	assert.ErrorContains(t, err, "listener IDs must be unique")
+	assert.Nil(t, ts)
+
+	ts, err = NewTestServerWithDynamicPorts([]string{"a"}, -1.0, 0, 0, false)
+	assert.ErrorContains(t, err, "error rate must be between 0 and 100")
+	assert.Nil(t, ts)
 }
 
-func TestHandlerReportsPort(t *testing.T) {
-	th := &TestHandler{
-		TestServer: &TestServer{},
-		Port:       "1234",
+func TestTestServer(t *testing.T) {
+	ts, err := NewTestServerWithDynamicPorts([]string{"MY-ID"}, 0.0, 0, 0, false)
+	assert.Nil(t, err)
+	assert.NonNil(t, ts)
+
+	tsc := ts.ServeAsync()
+	defer tsc.Stop()
+
+	ports := tsc.IDPortMap()
+	assert.Equal(t, len(ports), 1)
+	for id, port := range ports {
+		assert.Equal(t, id, "MY-ID")
+		assert.NotEqual(t, port, 0)
 	}
 
-	r := httptest.NewRequest("GET", "/foo", nil)
-	w := httptest.NewRecorder()
-
-	th.ServeHTTP(w, r)
-
-	resp := w.Result()
-	assert.Equal(t, resp.StatusCode, 200)
-
-	assert.Equal(t, resp.Header.Get(TestServerIdHeader), "1234")
-
-	body, _ := ioutil.ReadAll(resp.Body)
-	defer resp.Body.Close()
-	assert.Equal(t, string(body), "Hi there, I love foo\n")
-}
-
-func TestHandlerForceResponseCode(t *testing.T) {
-	th := &TestHandler{
-		TestServer: &TestServer{},
-		Port:       "1234",
+	resp, err := http.Get(fmt.Sprintf("http://127.0.0.1:%d/this%%20test", ports["MY-ID"]))
+	if assert.Nil(t, err) {
+		defer resp.Body.Close()
 	}
+	body, err := ioutil.ReadAll(resp.Body)
+	assert.Nil(t, err)
 
-	r := httptest.NewRequest("GET", "/foo?force-response-code=599", nil)
-	w := httptest.NewRecorder()
-
-	th.ServeHTTP(w, r)
-
-	resp := w.Result()
-	assert.Equal(t, resp.StatusCode, 599)
-
-	body, _ := ioutil.ReadAll(resp.Body)
-	defer resp.Body.Close()
-	assert.Equal(t, string(body), "Hi there, I love foo\n")
-}
-
-func TestHandlerEchoHeadersWithPrefixOnSuccess(t *testing.T) {
-	th := &TestHandler{
-		TestServer: &TestServer{},
-		Port:       "1234",
-	}
-
-	r := httptest.NewRequest("GET", "/foo?echo-headers-with-prefix=x-", nil)
-	r.Header.Add("x-show-me", "the-money")
-	r.Header.Add("x-show-me", "state")
-	r.Header.Add("y-me", "because")
-
-	w := httptest.NewRecorder()
-
-	th.ServeHTTP(w, r)
-
-	resp := w.Result()
-	assert.Equal(t, resp.StatusCode, 200)
-
-	body, _ := ioutil.ReadAll(resp.Body)
-	defer resp.Body.Close()
-	assert.Equal(t, string(body), "Hi there, I love foo\nHeader X-Show-Me = the-money, state\n")
-}
-
-func TestHandlerIgnoreEchoHeadersWithPrefixOnFailure(t *testing.T) {
-	th := &TestHandler{
-		TestServer: &TestServer{errorRate: 100.0},
-		Port:       "1234",
-	}
-
-	r := httptest.NewRequest("GET", "/foo?echo-headers-with-prefix=x-", nil)
-	r.Header.Add("x-show-me", "the-money")
-
-	w := httptest.NewRecorder()
-
-	th.ServeHTTP(w, r)
-
-	resp := w.Result()
-	assert.Equal(t, resp.StatusCode, 503)
-
-	body, _ := ioutil.ReadAll(resp.Body)
-	defer resp.Body.Close()
-	assert.Equal(t, string(body), "oopsies\n")
+	assert.Equal(t, string(body), "Hi there, I love this test\n")
+	assert.Equal(t, resp.Header.Get(TestServerIDHeader), "MY-ID")
 }
