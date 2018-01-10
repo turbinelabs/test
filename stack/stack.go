@@ -24,7 +24,6 @@ package stack
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"runtime"
 	"strings"
@@ -37,10 +36,11 @@ type frame struct {
 	line     int
 }
 
-// Series of function calls with most recent in smaller indexes.
+// Stack is a series of function calls ordered most-to-least recent.
 type Stack []frame
 
-// Generate a new stack trace.
+// New generates a new stack trace. This function will not appear in
+// the trace.
 func New() Stack {
 	var results Stack
 
@@ -48,6 +48,11 @@ func New() Stack {
 		pc, file, line, ok := runtime.Caller(i)
 		if !ok {
 			break
+		}
+
+		// Ignore this function.
+		if i == 0 {
+			continue
 		}
 
 		fn := runtime.FuncForPC(pc)
@@ -71,10 +76,10 @@ func New() Stack {
 	return results
 }
 
-// Remove frames from the top of the stack.
+// Pop removes frames from the top of the stack.
 func (s *Stack) Pop(n int) error {
 	if l := len(*s); l < n {
-		return errors.New(fmt.Sprintf("Attempting to pop too many frames from stack; %d deep", l))
+		return fmt.Errorf("Attempting to pop too many frames from stack; %d deep", l)
 	}
 
 	*s = (*s)[n:]
@@ -82,10 +87,10 @@ func (s *Stack) Pop(n int) error {
 	return nil
 }
 
-// Because the depth in a certain library may not be consistent use this to
-// remove the top of the stack that matches some prefix. If the stack contains
-// an entry that doesn't match the prefix it assumes the remaining entries
-// should stay.
+// PopFrames removes frames from the top of the stack whose file paths
+// match some prefix. Useful when the stack depth in a certain library
+// may not be consistent. Removal of frames stops when the first
+// non-matching frame is encountered.
 //
 // NB: Because it's prefix matching you should be cognizant of its interplay
 // with TrimPaths.
@@ -114,10 +119,15 @@ func (s *Stack) PopFrames(prefixes ...string) {
 	*s = newStack
 }
 
-// Examine filepaths and remove common path prefixes.
-func (s Stack) TrimPaths(pathList ...string) {
+// TrimPaths examines filepaths and strips common path prefixes. For
+// each stack frame, the frame's filepath is compared to each of the
+// given prefixes. If a prefix matches, it is removed from
+// filepath. Note that after a match, the remaining prefixes are
+// compared against the modified path, and if they match another strip
+// operation occurs.
+func (s Stack) TrimPaths(prefixes ...string) {
 	for i := range s {
-		for _, pfx := range pathList {
+		for _, pfx := range prefixes {
 			if strings.HasPrefix(s[i].filepath, pfx) {
 				s[i].filepath = s[i].filepath[len(pfx):]
 			}
@@ -125,13 +135,11 @@ func (s Stack) TrimPaths(pathList ...string) {
 	}
 }
 
-// Produce a string containing the stack trace formated for consumption. If
-// includeHeader is set will include a column header for function, line, and
-// file.
+// Format produces a string containing the stack trace formatted for
+// consumption. If includeHeader is set, it will include a column
+// header for function, line, and file.
 //
-// Example output:
-//   --- FAIL: TestClusterConstraintsEqualsSuccess (0.00s)
-//   	assert.go:60: got: (bool) true, want (bool) false in
+// Example output (with includeHeader set to true):
 //   		function                            file:line
 //   		TestClusterConstraintsEqualsSuccess api/cluster_constraint_test.go:16
 //   		tRunner                             go/src/testing/testing.go:456
@@ -151,4 +159,18 @@ func (s Stack) Format(includeHeader bool) string {
 	w.Flush()
 
 	return buf.String()
+}
+
+// Frames returns an array of stack frames formatted as strings. Each
+// frame contains the function name and a file:line reference to the
+// code's location in parentheses. May return an empty slice.
+//
+// Example stack frame:
+//   "TestClusterConstraintsEqualsSuccess (api/cluster_constraint_test.go:16)"
+func (s Stack) Frames() []string {
+	frames := make([]string, 0, len(s))
+	for _, f := range s {
+		frames = append(frames, fmt.Sprintf("%s (%s:%d)", f.function, f.filepath, f.line))
+	}
+	return frames
 }
