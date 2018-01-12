@@ -512,7 +512,13 @@ func TestDeepEqualSlices(t *testing.T) {
 				got:          s1,
 				want:         s4,
 				expectEqual:  false,
-				expectReason: "got is a []string of length 2, want is length 1",
+				expectReason: `got[1] is "b", no want[1] given`,
+			},
+			{
+				got:          s4,
+				want:         s1,
+				expectEqual:  false,
+				expectReason: `got[1] missing, want[1] is "b"`,
 			},
 			{
 				got:          s1,

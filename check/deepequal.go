@@ -3,6 +3,7 @@ package check
 import (
 	"fmt"
 	"reflect"
+	"strings"
 	"unsafe"
 )
 
@@ -28,6 +29,24 @@ func boolResult(got, want bool, path, reason string) (bool, string) {
 	}
 
 	return false, fmt.Sprintf("got%s is not %s, want%s is %s", path, reason, path, reason)
+}
+
+func render(t reflect.Type, v reflect.Value) string {
+	switch t.Kind() {
+	case reflect.String:
+		return fmt.Sprintf("%q", v.String())
+
+	case reflect.Ptr:
+		if t.Elem().Kind() == reflect.String {
+			if v.IsNil() {
+				return "<nil>"
+			}
+			return fmt.Sprintf("%q", reflect.Indirect(v).String())
+		}
+		fallthrough
+	default:
+		return fmt.Sprintf("%+v", v)
+	}
 }
 
 func deepEqual(v1, v2 reflect.Value, visited map[visit]struct{}, path string) (bool, string) {
@@ -71,17 +90,6 @@ func deepEqual(v1, v2 reflect.Value, visited map[visit]struct{}, path string) (b
 			return boolResult(v1.IsNil(), v2.IsNil(), path, "nil")
 		}
 
-		if v1.Len() != v2.Len() {
-			return false, fmt.Sprintf(
-				"got%s is a %s of length %d, want%s is length %d",
-				path,
-				v1.Type().String(),
-				v1.Len(),
-				path,
-				v2.Len(),
-			)
-		}
-
 		if v1.Pointer() == v2.Pointer() {
 			// same instance
 			return true, ""
@@ -89,9 +97,10 @@ func deepEqual(v1, v2 reflect.Value, visited map[visit]struct{}, path string) (b
 		fallthrough
 
 	case reflect.Array:
-		// For slices, we've just checked the length. For Arrays, the
-		// length is part of the type equality above.
-		for i := 0; i < v1.Len(); i++ {
+		allMatched := true
+		fullReason := ""
+		i := 0
+		for ; i < v1.Len() && i < v2.Len(); i++ {
 			ok, reason := deepEqual(
 				v1.Index(i),
 				v2.Index(i),
@@ -99,11 +108,39 @@ func deepEqual(v1, v2 reflect.Value, visited map[visit]struct{}, path string) (b
 				fmt.Sprintf("%s[%d]", path, i),
 			)
 			if !ok {
-				return false, reason
+				fullReason += reason + "\n"
+				allMatched = false
 			}
 		}
 
-		return true, ""
+		if i < v1.Len() {
+			for j := i; j < v1.Len(); j++ {
+				fullReason += fmt.Sprintf(
+					"got%s[%d] is %s, no want%s[%d] given\n",
+					path,
+					j,
+					render(v1.Type().Elem(), v1.Index(j)),
+					path,
+					j)
+			}
+			allMatched = false
+		}
+
+		if i < v2.Len() {
+			for j := i; j < v2.Len(); j++ {
+				fullReason += fmt.Sprintf(
+					"got%s[%d] missing, want%s[%d] is %s\n",
+					path,
+					j,
+					path,
+					j,
+					render(v2.Type().Elem(), v2.Index(j)),
+				)
+			}
+			allMatched = false
+		}
+
+		return allMatched, strings.TrimSpace(fullReason)
 
 	case reflect.Interface:
 		if v1.IsNil() || v2.IsNil() {
