@@ -3,6 +3,7 @@ package check
 import (
 	"fmt"
 	"reflect"
+	"strings"
 	"testing"
 	"unsafe"
 )
@@ -39,7 +40,7 @@ func (tc testCase) runTest(t *testing.T, idx int) {
 		return
 	} else if reason != tc.expectReason {
 		t.Errorf(
-			"testCases[%d]: objects not equal\ngot reason: %s\nexp reason: %s",
+			"testCases[%d]: objects not equal for wrong reason\ngot reason: %s\nexp reason: %s",
 			idx,
 			reason,
 			tc.expectReason,
@@ -486,6 +487,9 @@ func TestDeepEqualSlices(t *testing.T) {
 	s3 := []string{"a", "not b"}
 	s4 := []string{"a"}
 	var s5 []string
+	s6 := []string{"a", "b", "c", "d"}
+	s7 := []string{"x", "b", "y", "d", "z"}
+	s8 := []string{"x", "y", "z", "x", "y", "not z"}
 
 	runTests(
 		t,
@@ -525,6 +529,45 @@ func TestDeepEqualSlices(t *testing.T) {
 				want:         s5,
 				expectEqual:  false,
 				expectReason: "got is not nil, want is nil",
+			},
+			{
+				got:         s6,
+				want:        s7,
+				expectEqual: false,
+				expectReason: strings.Join([]string{
+					`got[0] is "a", want[0] is "x"`,
+					`got[2] is "c", want[2] is "y"`,
+					`got[4] missing, want[4] is "z"`,
+				}, "\n"),
+			},
+			{
+				got:         s7,
+				want:        s6,
+				expectEqual: false,
+				expectReason: strings.Join([]string{
+					`got[0] is "x", want[0] is "a"`,
+					`got[2] is "y", want[2] is "c"`,
+					`got[4] is "z", no want[4] given`,
+				}, "\n"),
+			},
+
+			// Verify that we don't mistakenly detect subslices as equal by pointer
+			{
+				got:          s6,
+				want:         s6[0:3],
+				expectEqual:  false,
+				expectReason: `got[3] is "d", no want[3] given`,
+			},
+			{
+				got:          s8[0:3],
+				want:         s8[3:6],
+				expectEqual:  false,
+				expectReason: `got[2] is "z", want[2] is "not z"`,
+			},
+			{
+				got:         s8[0:3],
+				want:        s8[0:3],
+				expectEqual: true,
 			},
 		},
 	)

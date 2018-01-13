@@ -90,7 +90,7 @@ func deepEqual(v1, v2 reflect.Value, visited map[visit]struct{}, path string) (b
 			return boolResult(v1.IsNil(), v2.IsNil(), path, "nil")
 		}
 
-		if v1.Pointer() == v2.Pointer() {
+		if v1.Pointer() == v2.Pointer() && v1.Len() == v2.Len() {
 			// same instance
 			return true, ""
 		}
@@ -121,7 +121,8 @@ func deepEqual(v1, v2 reflect.Value, visited map[visit]struct{}, path string) (b
 					j,
 					render(v1.Type().Elem(), v1.Index(j)),
 					path,
-					j)
+					j,
+				)
 			}
 			allMatched = false
 		}
