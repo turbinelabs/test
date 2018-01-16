@@ -1,3 +1,18 @@
+/*
+Copyright 2017 Turbine Labs, Inc.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
 package check
 
 import (
@@ -646,5 +661,42 @@ func TestDeepEqualInternalsTrackedTypes(t *testing.T) {
 	ok, _ = deepEqual(v2, v1, visited, "")
 	if !ok {
 		t.Error("expected equal result, but got not equal result")
+	}
+}
+
+func TestRender(t *testing.T) {
+	a := "abc"
+	b := "def"
+	var c *string
+	d := struct{ i int }{i: 123}
+
+	expected := fmt.Sprintf("%q", a)
+	rendered := render(reflect.TypeOf(a), reflect.ValueOf(a))
+	if rendered != expected {
+		t.Errorf("expected %s, got %s", expected, rendered)
+	}
+
+	expected = fmt.Sprintf("%q", b)
+	rendered = render(reflect.TypeOf(&b), reflect.ValueOf(&b))
+	if rendered != expected {
+		t.Errorf("expected %s, got %s", expected, rendered)
+	}
+
+	expected = "<nil>"
+	rendered = render(reflect.TypeOf(c), reflect.ValueOf(c))
+	if rendered != expected {
+		t.Errorf("expected %s, got %s", expected, rendered)
+	}
+
+	expected = "{i:123}"
+	rendered = render(reflect.TypeOf(d), reflect.ValueOf(d))
+	if rendered != expected {
+		t.Errorf("expected %s, got %s", expected, rendered)
+	}
+
+	expected = "&{i:123}"
+	rendered = render(reflect.TypeOf(&d), reflect.ValueOf(&d))
+	if rendered != expected {
+		t.Errorf("expected %s, got %s", expected, rendered)
 	}
 }
