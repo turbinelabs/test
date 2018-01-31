@@ -70,7 +70,7 @@ func (th TestHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	if ts.errorRate > 0.0 && ts.rand.Float64()*100.0 < ts.errorRate {
 		ts.verbosef("failing")
-		http.Error(w, "oopsies", respCodeOrDefault(503))
+		http.Error(w, "oopsies", respCodeOrDefault(ts.errorStatus))
 		return
 	}
 

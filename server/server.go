@@ -30,12 +30,17 @@ import (
 	"time"
 )
 
+const (
+	DefaultErrorStatus = 503
+)
+
 type closerChan chan struct{}
 
 // TestServer represents one or more HTTP listeners.
 type TestServer struct {
 	ports         []string
 	listenerIDs   []string
+	errorStatus   int
 	errorRate     float64
 	latencyMean   time.Duration
 	latencyStdDev time.Duration
@@ -94,6 +99,18 @@ func (ts *TestServer) closeListenerOnMessage(closer closerChan, listener net.Lis
 	}
 	ts.logf("closing listener for %s", listener.Addr())
 	listener.Close()
+}
+
+// SetErrorStatus configures the error code returned when the server's
+// error rate is non-zero. It defaults to 503 (service
+// unavailable). The value must be at least 500 and less than 600.
+func (ts *TestServer) SetErrorStatus(code int) error {
+	if code < 400 || code >= 600 {
+		return fmt.Errorf("status code %d: out of range", code)
+	}
+
+	ts.errorStatus = code
+	return nil
 }
 
 // ServeAsync starts the configured listeners for this TestServer and
@@ -188,7 +205,16 @@ func NewTestServer(
 		listenerIDs[i] = ":" + port
 	}
 
-	ts := TestServer{ports, listenerIDs, errorRate, latencyMean, latencyStdDev, verbose, mkRand()}
+	ts := TestServer{
+		ports,
+		listenerIDs,
+		DefaultErrorStatus,
+		errorRate,
+		latencyMean,
+		latencyStdDev,
+		verbose,
+		mkRand(),
+	}
 
 	return &ts, nil
 }
@@ -229,7 +255,16 @@ func NewTestServerWithDynamicPorts(
 		ports[i] = "0"
 	}
 
-	ts := TestServer{ports, listenerIDs, errorRate, latencyMean, latencyStdDev, verbose, mkRand()}
+	ts := TestServer{
+		ports,
+		listenerIDs,
+		DefaultErrorStatus,
+		errorRate,
+		latencyMean,
+		latencyStdDev,
+		verbose,
+		mkRand(),
+	}
 
 	return &ts, nil
 }

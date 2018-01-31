@@ -57,6 +57,7 @@ query parameter may be repeated to display headers with multiple prefixes.`
 var (
 	ports           []string
 	portsList       string
+	errorStatus     int
 	errorRate       float64
 	latencyMeanMs   float64
 	latencyStdDevMs float64
@@ -132,6 +133,13 @@ func configureFlags() *flag.FlagSet {
 		"ports",
 		"8889",
 		"A comma-separated list of listener `ports` for the test server. The server listens on all interfaces.",
+	)
+
+	fs.IntVar(
+		&errorStatus,
+		"error-status",
+		server.DefaultErrorStatus,
+		"The HTTP status code the test server returns periodically when error-rate is non-zero.",
 	)
 
 	fs.Float64Var(
@@ -215,6 +223,10 @@ func run(fs *flag.FlagSet) int {
 		verbose,
 	)
 	if err != nil {
+		return usage(fs, err)
+	}
+
+	if err := ts.SetErrorStatus(errorStatus); err != nil {
 		return usage(fs, err)
 	}
 

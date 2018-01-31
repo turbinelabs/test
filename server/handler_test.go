@@ -11,7 +11,7 @@ import (
 
 func TestHandlerReportsID(t *testing.T) {
 	handler := TestHandler{
-		TestServer: &TestServer{},
+		TestServer: &TestServer{errorStatus: DefaultErrorStatus},
 		ID:         "handler-id",
 	}
 
@@ -28,7 +28,7 @@ func TestHandlerReportsID(t *testing.T) {
 
 func TestHandlerForceResponseCode(t *testing.T) {
 	th := TestHandler{
-		TestServer: &TestServer{},
+		TestServer: &TestServer{errorStatus: DefaultErrorStatus},
 		ID:         "1234",
 	}
 
@@ -44,7 +44,7 @@ func TestHandlerForceResponseCode(t *testing.T) {
 
 func TestHandlerEchoHeadersWithPrefixOnSuccess(t *testing.T) {
 	th := TestHandler{
-		TestServer: &TestServer{},
+		TestServer: &TestServer{errorStatus: DefaultErrorStatus},
 		ID:         "1234",
 	}
 
@@ -65,8 +65,9 @@ func TestHandlerEchoHeadersWithPrefixOnSuccess(t *testing.T) {
 func TestHandlerIgnoreEchoHeadersWithPrefixOnFailure(t *testing.T) {
 	th := TestHandler{
 		TestServer: &TestServer{
-			errorRate: 100.0,
-			rand:      rand.New(rand.NewSource(1234)),
+			errorStatus: DefaultErrorStatus,
+			errorRate:   100.0,
+			rand:        rand.New(rand.NewSource(1234)),
 		},
 		ID: "1234",
 	}
@@ -86,6 +87,7 @@ func TestHandlerIgnoreEchoHeadersWithPrefixOnFailure(t *testing.T) {
 func TestHandlerImplementsLatency(t *testing.T) {
 	th := TestHandler{
 		TestServer: &TestServer{
+			errorStatus:   DefaultErrorStatus,
 			latencyMean:   100 * time.Millisecond,
 			latencyStdDev: 0, // no deviation
 			rand:          rand.New(rand.NewSource(1234)),
@@ -109,6 +111,7 @@ func TestHandlerImplementsLatencyWithStddev(t *testing.T) {
 
 	th := TestHandler{
 		TestServer: &TestServer{
+			errorStatus:   DefaultErrorStatus,
 			latencyMean:   100 * time.Millisecond,
 			latencyStdDev: 10 * time.Millisecond,
 			rand:          rand.New(rand.NewSource(1234)),
@@ -143,8 +146,9 @@ func TestHandlerImplementsErrorRate(t *testing.T) {
 
 	th := TestHandler{
 		TestServer: &TestServer{
-			errorRate: 50.0,
-			rand:      rand.New(rand.NewSource(1234)),
+			errorStatus: DefaultErrorStatus,
+			errorRate:   50.0,
+			rand:        rand.New(rand.NewSource(1234)),
 		},
 		ID: "latent",
 	}
@@ -157,4 +161,28 @@ func TestHandlerImplementsErrorRate(t *testing.T) {
 
 		assert.Equal(t, w.Result().StatusCode != 200, expectedFailure)
 	}
+}
+
+func TestHandlerErrorStatus(t *testing.T) {
+	th := TestHandler{
+		TestServer: &TestServer{
+			errorStatus: DefaultErrorStatus,
+			errorRate:   100.0,
+			rand:        rand.New(rand.NewSource(1234)),
+		},
+		ID: "failure",
+	}
+
+	r := httptest.NewRequest("GET", "/foo", nil)
+	w := httptest.NewRecorder()
+
+	th.ServeHTTP(w, r)
+	assert.Equal(t, w.Result().StatusCode, DefaultErrorStatus)
+
+	th.TestServer.errorStatus = 500
+	r = httptest.NewRequest("GET", "/foo", nil)
+	w = httptest.NewRecorder()
+
+	th.ServeHTTP(w, r)
+	assert.Equal(t, w.Result().StatusCode, 500)
 }
