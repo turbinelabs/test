@@ -327,7 +327,7 @@ func TestParseOutputOnSkippedTest(t *testing.T) {
 
 	test2 := pkg.Tests[1]
 	assert.Equal(t, test2.Result, results.Skipped)
-	assert.MatchesRegex(t, test2.Failure.String(), `reason`)
+	assert.StringContains(t, test2.Failure.String(), `reason`)
 }
 
 func TestParseOutputOnNoTests(t *testing.T) {

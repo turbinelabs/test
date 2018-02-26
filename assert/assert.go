@@ -685,7 +685,7 @@ func StringContains(t testing.TB, got, want string) bool {
 	tr := Tracing(t)
 	if !strings.Contains(got, want) {
 		tr.Errorf(
-			"got %s, wanted message containing %s",
+			"got %s, wanted string containing %s",
 			tbnstr.Stringify(got),
 			tbnstr.Stringify(want),
 		)
@@ -700,9 +700,69 @@ func StringDoesNotContain(t testing.TB, got, want string) bool {
 	tr := Tracing(t)
 	if strings.Contains(got, want) {
 		tr.Errorf(
-			"got %s, wanted message not containing %s",
+			"got %s, wanted string not containing %s",
 			tbnstr.Stringify(got),
 			tbnstr.Stringify(want),
+		)
+		return false
+	}
+
+	return true
+}
+
+// HasPrefix asserts that got starts with prefix.
+func HasPrefix(t testing.TB, got, prefix string) bool {
+	tr := Tracing(t)
+	if !strings.HasPrefix(got, prefix) {
+		tr.Errorf(
+			"got %s, wanted string starting with %s",
+			tbnstr.Stringify(got),
+			tbnstr.Stringify(prefix),
+		)
+		return false
+	}
+
+	return true
+}
+
+// DoesNotHavePrefix asserts that got does not start with prefix.
+func DoesNotHavePrefix(t testing.TB, got, prefix string) bool {
+	tr := Tracing(t)
+	if strings.HasPrefix(got, prefix) {
+		tr.Errorf(
+			"got %s, wanted string not starting with %s",
+			tbnstr.Stringify(got),
+			tbnstr.Stringify(prefix),
+		)
+		return false
+	}
+
+	return true
+}
+
+// HasSuffix asserts that got starts with prefix.
+func HasSuffix(t testing.TB, got, prefix string) bool {
+	tr := Tracing(t)
+	if !strings.HasSuffix(got, prefix) {
+		tr.Errorf(
+			"got %s, wanted string ending with %s",
+			tbnstr.Stringify(got),
+			tbnstr.Stringify(prefix),
+		)
+		return false
+	}
+
+	return true
+}
+
+// DoesNotHaveSuffix asserts that got does not start with prefix.
+func DoesNotHaveSuffix(t testing.TB, got, prefix string) bool {
+	tr := Tracing(t)
+	if strings.HasSuffix(got, prefix) {
+		tr.Errorf(
+			"got %s, wanted string not ending with %s",
+			tbnstr.Stringify(got),
+			tbnstr.Stringify(prefix),
 		)
 		return false
 	}

@@ -577,7 +577,7 @@ func TestErrorDoesNotContain(t *testing.T) {
 	err := fmt.Errorf("this error contains: magic!")
 
 	if ErrorDoesNotContain(mockT, err, "magic") {
-		tr.Errorf("expected '%s' to contain 'magic', but it did", err.Error())
+		tr.Errorf("expected '%s' to contain 'magic', but it did not", err.Error())
 	}
 	if !ErrorDoesNotContain(mockT, err, "special sauce") {
 		tr.Errorf("expected '%s' not to contain 'special sauce'", err.Error())
@@ -608,16 +608,84 @@ func TestStringDoesNotContain(t *testing.T) {
 	tr := Tracing(t)
 	mockT := &testing.T{}
 
-	str := "this error contains: magic!"
+	str := "this string contains: magic!"
 
 	if StringDoesNotContain(mockT, str, "magic") {
-		tr.Errorf("expected '%s' to contain 'magic', but it did", str)
+		tr.Errorf("expected '%s' to contain 'magic', but it did not", str)
 	}
 	if !StringDoesNotContain(mockT, str, "special sauce") {
 		tr.Errorf("expected '%s' not to contain 'special sauce'", str)
 	}
 	if !StringDoesNotContain(mockT, "", "anything") {
 		tr.Errorf("expected '' not to contain 'anything'")
+	}
+}
+
+func TestStringHasPrefix(t *testing.T) {
+	tr := Tracing(t)
+	mockT := &testing.T{}
+
+	str := "this string contains: magic!"
+
+	if !HasPrefix(mockT, str, "this string") {
+		tr.Errorf("expected '%s' to start with 'this string'", str)
+	}
+	if HasPrefix(mockT, str, "special sauce") {
+		tr.Errorf("expected '%s' not to start with 'special sauce'", str)
+	}
+	if HasPrefix(mockT, "", "anything") {
+		tr.Errorf("expected '' not to start with 'anything'")
+	}
+}
+
+func TestStringDoesNotHavePrefix(t *testing.T) {
+	tr := Tracing(t)
+	mockT := &testing.T{}
+
+	str := "this string contains: magic!"
+
+	if DoesNotHavePrefix(mockT, str, "this string") {
+		tr.Errorf("expected '%s' to start with 'this string', but it did not", str)
+	}
+	if !DoesNotHavePrefix(mockT, str, "special sauce") {
+		tr.Errorf("expected '%s' not to start with 'special sauce'", str)
+	}
+	if !DoesNotHavePrefix(mockT, "", "anything") {
+		tr.Errorf("expected '' not to start with 'anything'")
+	}
+}
+
+func TestStringHasSuffix(t *testing.T) {
+	tr := Tracing(t)
+	mockT := &testing.T{}
+
+	str := "this string contains: magic!"
+
+	if !HasSuffix(mockT, str, "magic!") {
+		tr.Errorf("expected '%s' to end with 'magic!'", str)
+	}
+	if HasSuffix(mockT, str, "special sauce") {
+		tr.Errorf("expected '%s' not to end with 'special sauce'", str)
+	}
+	if HasSuffix(mockT, "", "anything") {
+		tr.Errorf("expected '' not to end with 'anything'")
+	}
+}
+
+func TestStringDoesNotHaveSuffix(t *testing.T) {
+	tr := Tracing(t)
+	mockT := &testing.T{}
+
+	str := "this string contains: magic!"
+
+	if DoesNotHaveSuffix(mockT, str, "magic!") {
+		tr.Errorf("expected '%s' to start with 'magic!', but it did not", str)
+	}
+	if !DoesNotHaveSuffix(mockT, str, "special sauce") {
+		tr.Errorf("expected '%s' not to end with 'special sauce'", str)
+	}
+	if !DoesNotHaveSuffix(mockT, "", "anything") {
+		tr.Errorf("expected '' not to end with 'anything'")
 	}
 }
 
