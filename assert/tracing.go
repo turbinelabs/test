@@ -40,8 +40,8 @@ func AddSrcPath(path string) {
 	}
 }
 
-// A TracingTB embeds a testing.TB, overriding the Errorf and Fatalf methods to
-// append stack traces.
+// A TracingTB embeds a testing.TB, overriding the Error/Errorf and Fatal/Fatalf
+// methods to append stack traces.
 type TracingTB struct {
 	testing.TB
 }
