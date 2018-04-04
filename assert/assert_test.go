@@ -1167,3 +1167,293 @@ func TestComparisonWithNaN(t *testing.T) {
 		tr.Errorf("expected failure comparing NaN <= number")
 	}
 }
+
+func TestChannelEmpty(t *testing.T) {
+	tr := Tracing(t)
+
+	mk := func(values ...string) chan string {
+		size := 1
+		if len(values) > size {
+			size = len(values)
+		}
+		ch := make(chan string, size)
+		for _, s := range values {
+			ch <- s
+		}
+
+		return ch
+	}
+
+	mkClosed := func(values ...string) chan string {
+		ch := mk(values...)
+		close(ch)
+		return ch
+	}
+
+	var (
+		openEmptyBidiCh      chan string
+		closedEmptyBidiCh    chan string
+		openNonEmptyBidiCh   chan string
+		closedNonEmptyBidiCh chan string
+
+		openEmptyRecvCh      <-chan string
+		closedEmptyRecvCh    <-chan string
+		openNonEmptyRecvCh   <-chan string
+		closedNonEmptyRecvCh <-chan string
+
+		openSendCh chan<- string
+	)
+
+	openEmptyBidiCh = mk()
+	openEmptyRecvCh = mk()
+	openSendCh = mk()
+
+	openNonEmptyBidiCh = mk("open, not empty")
+	openNonEmptyRecvCh = mk("open, not empty")
+
+	closedEmptyBidiCh = mkClosed()
+	closedEmptyRecvCh = mkClosed()
+
+	closedNonEmptyBidiCh = mkClosed("closed, not empty")
+	closedNonEmptyRecvCh = mkClosed("closed, not empty")
+
+	mt := &MockT{}
+	if !ChannelEmpty(mt, openEmptyBidiCh) {
+		tr.Error("expected ChannelEmpty to return true for open, empty bidi channel")
+	}
+	if !ChannelEmpty(mt, openEmptyRecvCh) {
+		tr.Error("expected ChannelEmpty to return true for open, empty recv channel")
+	}
+	if !ChannelEmpty(mt, closedEmptyBidiCh) {
+		tr.Error("expected ChannelEmpty to return true for closed, empty bidi channel")
+	}
+	if !ChannelEmpty(mt, closedEmptyRecvCh) {
+		tr.Error("expected ChannelEmpty to return true for closed, empty recv channel")
+	}
+
+	mt = &MockT{}
+	if ChannelEmpty(mt, openNonEmptyBidiCh) {
+		tr.Error("expected ChannelEmpty to return false for open, non-empty bidi channel")
+	}
+	mt.CheckPredicates(
+		tr,
+		Match(
+			ErrorOp(),
+			ArgsContain("channel was not empty, received: `open, not empty`"),
+		),
+	)
+
+	mt = &MockT{}
+	if ChannelEmpty(mt, openNonEmptyRecvCh) {
+		tr.Error("expected ChannelEmpty to return false for open, non-empty recv channel")
+	}
+	mt.CheckPredicates(
+		tr,
+		Match(
+			ErrorOp(),
+			ArgsContain("channel was not empty, received: `open, not empty`"),
+		),
+	)
+
+	mt = &MockT{}
+	if ChannelEmpty(mt, closedNonEmptyBidiCh) {
+		tr.Error("expected ChannelEmpty to return false for closed, non-empty bidi channel")
+	}
+	mt.CheckPredicates(
+		tr,
+		Match(
+			ErrorOp(),
+			ArgsContain("channel was not empty, received: `closed, not empty`"),
+		),
+	)
+
+	mt = &MockT{}
+	if ChannelEmpty(mt, closedNonEmptyRecvCh) {
+		tr.Error("expected ChannelEmpty to return false for closed, non-empty recv channel")
+	}
+	mt.CheckPredicates(
+		tr,
+		Match(
+			ErrorOp(),
+			ArgsContain("channel was not empty, received: `closed, not empty`"),
+		),
+	)
+
+	mt = &MockT{}
+	if ChannelEmpty(mt, "not a channel") {
+		tr.Error("expected ChannelEmpty to return false")
+	}
+	mt.CheckPredicates(
+		tr,
+		Match(
+			ErrorOp(),
+			ArgsContain("must be a channel"),
+		),
+	)
+
+	mt = &MockT{}
+	if ChannelEmpty(mt, openSendCh) {
+		tr.Error("expected ChannelEmpty to return false")
+	}
+	mt.CheckPredicates(
+		tr,
+		Match(
+			ErrorOp(),
+			ArgsContain("must allow receive operations"),
+		),
+	)
+}
+
+func TestChannelClosedAndEmpty(t *testing.T) {
+	tr := Tracing(t)
+
+	mk := func(values ...string) chan string {
+		size := 1
+		if len(values) > size {
+			size = len(values)
+		}
+		ch := make(chan string, size)
+		for _, s := range values {
+			ch <- s
+		}
+
+		return ch
+	}
+
+	mkClosed := func(values ...string) chan string {
+		ch := mk(values...)
+		close(ch)
+		return ch
+	}
+
+	var (
+		openEmptyBidiCh      chan string
+		closedEmptyBidiCh    chan string
+		openNonEmptyBidiCh   chan string
+		closedNonEmptyBidiCh chan string
+
+		openEmptyRecvCh      <-chan string
+		closedEmptyRecvCh    <-chan string
+		openNonEmptyRecvCh   <-chan string
+		closedNonEmptyRecvCh <-chan string
+
+		openSendCh chan<- string
+	)
+
+	openEmptyBidiCh = mk()
+	openEmptyRecvCh = mk()
+	openSendCh = mk()
+
+	openNonEmptyBidiCh = mk("open, not empty")
+	openNonEmptyRecvCh = mk("open, not empty")
+
+	closedEmptyBidiCh = mkClosed()
+	closedEmptyRecvCh = mkClosed()
+
+	closedNonEmptyBidiCh = mkClosed("closed, not empty")
+	closedNonEmptyRecvCh = mkClosed("closed, not empty")
+
+	mt := &MockT{}
+	if !ChannelClosedAndEmpty(mt, closedEmptyBidiCh) {
+		tr.Error("expected ChannelClosedAndEmpty to return true for closed, empty bidi channel")
+	}
+	if !ChannelClosedAndEmpty(mt, closedEmptyRecvCh) {
+		tr.Error("expected ChannelClosedAndEmpty to return true for closed, empty recv channel")
+	}
+
+	mt = &MockT{}
+	if ChannelClosedAndEmpty(mt, openEmptyBidiCh) {
+		tr.Error("expected ChannelClosedAndEmpty to return false for open, empty bidi channel")
+	}
+	mt.CheckPredicates(
+		tr,
+		Match(
+			ErrorOp(),
+			ArgsContain("channel is not closed"),
+		),
+	)
+
+	mt = &MockT{}
+	if ChannelClosedAndEmpty(mt, openEmptyRecvCh) {
+		tr.Error("expected ChannelClosedAndEmpty to return true for open, empty recv channel")
+	}
+	mt.CheckPredicates(
+		tr,
+		Match(
+			ErrorOp(),
+			ArgsContain("channel is not closed"),
+		),
+	)
+
+	mt = &MockT{}
+	if ChannelClosedAndEmpty(mt, openNonEmptyBidiCh) {
+		tr.Error("expected ChannelClosedAndEmpty to return false for open, non-empty bidi channel")
+	}
+	mt.CheckPredicates(
+		tr,
+		Match(
+			ErrorOp(),
+			ArgsContain("channel was not empty, received: `open, not empty`"),
+		),
+	)
+
+	mt = &MockT{}
+	if ChannelClosedAndEmpty(mt, openNonEmptyRecvCh) {
+		tr.Error("expected ChannelClosedAndEmpty to return false for open, non-empty recv channel")
+	}
+	mt.CheckPredicates(
+		tr,
+		Match(
+			ErrorOp(),
+			ArgsContain("channel was not empty, received: `open, not empty`"),
+		),
+	)
+
+	mt = &MockT{}
+	if ChannelEmpty(mt, closedNonEmptyBidiCh) {
+		tr.Error("expected ChannelClosedAndEmpty to return false for closed, non-empty bidi channel")
+	}
+	mt.CheckPredicates(
+		tr,
+		Match(
+			ErrorOp(),
+			ArgsContain("channel was not empty, received: `closed, not empty`"),
+		),
+	)
+
+	mt = &MockT{}
+	if ChannelEmpty(mt, closedNonEmptyRecvCh) {
+		tr.Error("expected ChannelClosedAndEmpty to return false for closed, non-empty recv channel")
+	}
+	mt.CheckPredicates(
+		tr,
+		Match(
+			ErrorOp(),
+			ArgsContain("channel was not empty, received: `closed, not empty`"),
+		),
+	)
+
+	mt = &MockT{}
+	if ChannelClosedAndEmpty(mt, "not a channel") {
+		tr.Error("expected ChannelClosedAndEmpty to return false")
+	}
+	mt.CheckPredicates(
+		tr,
+		Match(
+			ErrorOp(),
+			ArgsContain("must be a channel"),
+		),
+	)
+
+	mt = &MockT{}
+	if ChannelClosedAndEmpty(mt, openSendCh) {
+		tr.Error("expected ChannelEmpty to return false")
+	}
+	mt.CheckPredicates(
+		tr,
+		Match(
+			ErrorOp(),
+			ArgsContain("must allow receive operations"),
+		),
+	)
+}

@@ -818,3 +818,85 @@ func Panic(t testing.TB, f interface{}) bool {
 	}
 	return true
 }
+
+// ChannelEmpty asserts that the given channel is empty. The ch parameter must be a
+// receive or bidirectional channel. N.B.: A closed channel is not necessarily empty.
+func ChannelEmpty(t testing.TB, ch interface{}) bool {
+	chType := reflect.TypeOf(ch)
+	if chType.Kind() != reflect.Chan {
+		Tracing(t).Errorf("parameter to ChannelEmpty must be a channel: %+v", ch)
+		return false
+	}
+	if chType.ChanDir()&reflect.RecvDir == 0 {
+		Tracing(t).Errorf("parameter to ChannelEmpty must allow receive operations: %+v", ch)
+		return false
+	}
+
+	chosen, recv, recvOK := reflect.Select([]reflect.SelectCase{
+		{
+			Dir:  reflect.SelectRecv,
+			Chan: reflect.ValueOf(ch),
+		},
+		{
+			Dir: reflect.SelectDefault,
+		},
+	})
+
+	switch chosen {
+	case 0:
+		if recvOK {
+			Tracing(t).Errorf("channel was not empty, received: %s", tbnstr.Stringify(recv))
+			return false
+		}
+
+		// The channel is closed.
+		return true
+	case 1:
+		return true
+	default:
+		panic("unexpected index")
+	}
+}
+
+// ChannelClosedAndEmpty asserts that the given channel is closed and empty. The ch
+// parameter must be a receive or bidirectional channel.
+func ChannelClosedAndEmpty(t testing.TB, ch interface{}) bool {
+	chType := reflect.TypeOf(ch)
+	if chType.Kind() != reflect.Chan {
+		Tracing(t).Errorf("parameter to ChannelClosedAndEmpty must be a channel: %+v", ch)
+		return false
+	}
+	if chType.ChanDir()&reflect.RecvDir == 0 {
+		Tracing(t).Errorf(
+			"parameter to ChannelClosedAndEmpty must allow receive operations: %+v",
+			ch,
+		)
+		return false
+	}
+
+	chosen, recv, recvOK := reflect.Select([]reflect.SelectCase{
+		{
+			Dir:  reflect.SelectRecv,
+			Chan: reflect.ValueOf(ch),
+		},
+		{
+			Dir: reflect.SelectDefault,
+		},
+	})
+
+	switch chosen {
+	case 0:
+		if recvOK {
+			Tracing(t).Errorf("channel was not empty, received: %s", tbnstr.Stringify(recv))
+			return false
+		}
+
+		// The channel is closed.
+		return true
+	case 1:
+		Tracing(t).Errorf("channel is not closed")
+		return false
+	default:
+		panic("unexpected index")
+	}
+}
