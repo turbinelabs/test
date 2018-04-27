@@ -117,6 +117,14 @@ func Match(namePred NamePredicate, argPred ArgsPredicate) Predicate {
 	}
 }
 
+// MatchWithAnyArgs creates a Predicate from the given NamePredicate without regard
+// to the arguments passed.
+func MatchWithAnyArgs(namePred NamePredicate) Predicate {
+	return func(op MockTestOperation) MatchType {
+		return namePred(op.Name)
+	}
+}
+
 // MockT is an implementation of testing.TB that allows testing of
 // code that makes test assertions. Calls to Fatal, Fatalf, FailNow
 // and SkipNow are recorded, but do not terminate execution. If the
