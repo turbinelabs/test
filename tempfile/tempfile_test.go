@@ -92,3 +92,17 @@ func TestWritePrefix(t *testing.T) {
 	assert.NonNil(t, err)
 	assert.True(t, os.IsNotExist(err))
 }
+
+func TestAppend(t *testing.T) {
+	filename, cleanup := Write(t, "line1\n")
+	defer cleanup()
+
+	mockT := new(testing.T)
+
+	err := Append(mockT, filename, "line2\n")
+	assert.Nil(t, err)
+
+	data, err := ioutil.ReadFile(filename)
+	assert.Nil(t, err)
+	assert.Equal(t, string(data), "line1\nline2\n")
+}
