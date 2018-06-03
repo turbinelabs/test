@@ -49,9 +49,13 @@ type TestHandler struct {
 }
 
 func (th TestHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	ts := th.TestServer
-
 	w.Header().Set(TestServerIDHeader, th.ID)
+
+	ts := th.TestServer
+	if ts.handlerOverride != nil {
+		ts.handlerOverride(w, r)
+		return
+	}
 
 	if ts.latencyMean > 0 {
 		normLatency := time.Duration(

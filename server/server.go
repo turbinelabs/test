@@ -38,14 +38,15 @@ type closerChan chan struct{}
 
 // TestServer represents one or more HTTP listeners.
 type TestServer struct {
-	ports         []string
-	listenerIDs   []string
-	errorStatus   int
-	errorRate     float64
-	latencyMean   time.Duration
-	latencyStdDev time.Duration
-	verbose       bool
-	rand          *rand.Rand
+	ports           []string
+	listenerIDs     []string
+	errorStatus     int
+	errorRate       float64
+	latencyMean     time.Duration
+	latencyStdDev   time.Duration
+	verbose         bool
+	rand            *rand.Rand
+	handlerOverride http.HandlerFunc
 }
 
 // TestServerControl provides the ability to control a TestServer. It
@@ -185,6 +186,7 @@ func NewTestServer(
 	latencyMean time.Duration,
 	latencyStdDev time.Duration,
 	verbose bool,
+	override http.HandlerFunc,
 ) (*TestServer, error) {
 	if errorRate < 0 || errorRate > 100 {
 		return nil, fmt.Errorf("error rate must be between 0 and 100")
@@ -214,6 +216,7 @@ func NewTestServer(
 		latencyStdDev,
 		verbose,
 		mkRand(),
+		override,
 	}
 
 	return &ts, nil
@@ -233,6 +236,7 @@ func NewTestServerWithDynamicPorts(
 	latencyMean time.Duration,
 	latencyStdDev time.Duration,
 	verbose bool,
+	override http.HandlerFunc,
 ) (*TestServer, error) {
 	if len(listenerIDs) == 0 {
 		return nil, errors.New("must specify at least one listener ID")
@@ -264,6 +268,7 @@ func NewTestServerWithDynamicPorts(
 		latencyStdDev,
 		verbose,
 		mkRand(),
+		override,
 	}
 
 	return &ts, nil

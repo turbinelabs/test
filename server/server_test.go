@@ -33,6 +33,7 @@ func TestNewTestServer(t *testing.T) {
 		0,
 		0,
 		false,
+		nil,
 	)
 	assert.Nil(t, err)
 	assert.ArrayEqual(t, ts.ports, []string{"1234", "1235", "1236"})
@@ -43,6 +44,7 @@ func TestNewTestServer(t *testing.T) {
 		time.Second,
 		time.Millisecond,
 		true,
+		nil,
 	)
 	assert.Nil(t, err)
 	assert.ArrayEqual(t, ts.ports, []string{"9999", "1000"})
@@ -52,13 +54,20 @@ func TestNewTestServer(t *testing.T) {
 	assert.True(t, ts.verbose)
 	assert.NonNil(t, ts.rand)
 
-	ts, err = NewTestServer([]string{"1234"}, -1.0, 0, 0, false)
+	ts, err = NewTestServer([]string{"1234"}, -1.0, 0, 0, false, nil)
 	assert.ErrorContains(t, err, "error rate must be between 0 and 100")
 	assert.Nil(t, ts)
 }
 
 func TestNewTestServerWithDynamicPorts(t *testing.T) {
-	ts, err := NewTestServerWithDynamicPorts([]string{"a", "b", "c"}, 0.0, 0, 0, false)
+	ts, err := NewTestServerWithDynamicPorts(
+		[]string{"a", "b", "c"},
+		0.0,
+		0,
+		0,
+		false,
+		nil,
+	)
 	assert.Nil(t, err)
 	assert.ArrayEqual(t, ts.ports, []string{"0", "0", "0"})
 	assert.ArrayEqual(t, ts.listenerIDs, []string{"a", "b", "c"})
@@ -69,6 +78,7 @@ func TestNewTestServerWithDynamicPorts(t *testing.T) {
 		time.Second,
 		time.Millisecond,
 		true,
+		nil,
 	)
 	assert.Nil(t, err)
 	assert.ArrayEqual(t, ts.ports, []string{"0", "0"})
@@ -79,21 +89,49 @@ func TestNewTestServerWithDynamicPorts(t *testing.T) {
 	assert.True(t, ts.verbose)
 	assert.NonNil(t, ts.rand)
 
-	ts, err = NewTestServerWithDynamicPorts([]string{}, 0.0, 0, 0, false)
+	ts, err = NewTestServerWithDynamicPorts(
+		[]string{},
+		0.0,
+		0,
+		0,
+		false,
+		nil,
+	)
 	assert.ErrorContains(t, err, "must specify at least one listener ID")
 	assert.Nil(t, ts)
 
-	ts, err = NewTestServerWithDynamicPorts([]string{"x", "x"}, 0.0, 0, 0, false)
+	ts, err = NewTestServerWithDynamicPorts(
+		[]string{"x", "x"},
+		0.0,
+		0,
+		0,
+		false,
+		nil,
+	)
 	assert.ErrorContains(t, err, "listener IDs must be unique")
 	assert.Nil(t, ts)
 
-	ts, err = NewTestServerWithDynamicPorts([]string{"a"}, -1.0, 0, 0, false)
+	ts, err = NewTestServerWithDynamicPorts(
+		[]string{"a"},
+		-1.0,
+		0,
+		0,
+		false,
+		nil,
+	)
 	assert.ErrorContains(t, err, "error rate must be between 0 and 100")
 	assert.Nil(t, ts)
 }
 
 func TestTestServer(t *testing.T) {
-	ts, err := NewTestServerWithDynamicPorts([]string{"MY-ID"}, 0.0, 0, 0, false)
+	ts, err := NewTestServerWithDynamicPorts(
+		[]string{"MY-ID"},
+		0.0,
+		0,
+		0,
+		false,
+		nil,
+	)
 	assert.Nil(t, err)
 	assert.NonNil(t, ts)
 

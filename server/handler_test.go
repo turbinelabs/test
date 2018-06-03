@@ -17,7 +17,9 @@ limitations under the License.
 package server
 
 import (
+	"fmt"
 	"math/rand"
+	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
@@ -201,4 +203,26 @@ func TestHandlerErrorStatus(t *testing.T) {
 
 	th.ServeHTTP(w, r)
 	assert.Equal(t, w.Result().StatusCode, 500)
+}
+
+func TestHandlerUsesOverrideIfProvided(t *testing.T) {
+	handler := TestHandler{
+		TestServer: &TestServer{
+			errorStatus: DefaultErrorStatus,
+			handlerOverride: func(w http.ResponseWriter, r *http.Request) {
+				fmt.Fprintf(w, "booooo %s!\n", r.URL.Path[1:])
+			},
+		},
+		ID: "handler-id",
+	}
+
+	r := httptest.NewRequest("GET", "/foo", nil)
+	w := httptest.NewRecorder()
+
+	handler.ServeHTTP(w, r)
+
+	resp := w.Result()
+	assert.Equal(t, resp.StatusCode, 200)
+	assert.Equal(t, resp.Header.Get(TestServerIDHeader), "handler-id")
+	assert.Equal(t, w.Body.String(), "booooo foo!\n")
 }

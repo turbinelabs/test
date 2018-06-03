@@ -221,6 +221,7 @@ func run(fs *flag.FlagSet) int {
 		time.Duration(latencyMeanMs*float64(time.Millisecond)),
 		time.Duration(latencyStdDevMs*float64(time.Millisecond)),
 		verbose,
+		nil,
 	)
 	if err != nil {
 		return usage(fs, err)
